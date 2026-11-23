@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "845923271811",
+    "project_id": "smartevents-4de9c",
+    "storage_bucket": "smartevents-4de9c.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:845923271811:android:374280b322e19c113987b6",
+        "android_client_info": {
+          "package_name": "com.smartevents.smartevents"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCIOLvt4ylz2Y8y-k8XkyEHVsyu7eS6gYk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
