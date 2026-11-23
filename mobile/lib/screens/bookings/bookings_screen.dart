@@ -112,12 +112,14 @@ class _BookingsScreenState extends State<BookingsScreen> {
                         )
                       : RefreshIndicator(
                           onRefresh: _load,
-                          child: ListView.separated(
-                            padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-                            itemCount: list.length,
-                            separatorBuilder: (_, _) => const SizedBox(height: 12),
-                            itemBuilder: (_, i) => _BookingCard(list[i], myId: me.id, onReturn: () => _load(silent: true)),
-                          ),
+                          child: me.isVendor
+                              ? ListView.separated(
+                                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                                  itemCount: list.length,
+                                  separatorBuilder: (_, _) => const SizedBox(height: 12),
+                                  itemBuilder: (_, i) => _BookingCard(list[i], myId: me.id, onReturn: () => _load(silent: true)),
+                                )
+                              : _GroupedList(list: list, myId: me.id, onReturn: () => _load(silent: true)),
                         ),
         ),
       ]),
@@ -176,11 +178,96 @@ class _BookingCard extends StatelessWidget {
                 const SizedBox(width: 8),
                 Icon(Icons.event_rounded, size: 15, color: p.muted),
                 const SizedBox(width: 4),
-                Text(shortDate(b.eventDate), style: TextStyle(color: p.muted, fontSize: 12.5)),
+                Text(dateRange(b.eventDate, b.eventEndDate, withDays: false), style: TextStyle(color: p.muted, fontSize: 12.5)),
               ],
             ]),
           ]),
         ),
+      ),
+    );
+  }
+}
+
+/// An organizer's bookings grouped under the event each one is for.
+class _GroupedList extends StatelessWidget {
+  const _GroupedList({required this.list, required this.myId, required this.onReturn});
+  final List<Booking> list;
+  final String myId;
+  final VoidCallback onReturn;
+
+  @override
+  Widget build(BuildContext context) {
+    final groups = <String, List<Booking>>{};
+    final plans = <String, PlanRef>{};
+    for (final b in list) {
+      final key = b.plan?.id ?? '';
+      if (b.plan != null) plans[key] = b.plan!;
+      groups.putIfAbsent(key, () => []).add(b);
+    }
+    final keys = groups.keys.toList()
+      ..sort((a, b) {
+        if (a.isEmpty) return 1;
+        if (b.isEmpty) return -1;
+        return (plans[a]!.date ?? DateTime(2100)).compareTo(plans[b]!.date ?? DateTime(2100));
+      });
+    final children = <Widget>[];
+    for (final k in keys) {
+      children.add(_EventHeader(plan: plans[k], bookings: groups[k]!));
+      for (final b in groups[k]!) {
+        children.add(Padding(padding: const EdgeInsets.only(bottom: 10), child: _BookingCard(b, myId: myId, onReturn: onReturn)));
+      }
+      children.add(const SizedBox(height: 14));
+    }
+    return ListView(padding: const EdgeInsets.fromLTRB(16, 8, 16, 24), children: children);
+  }
+}
+
+class _EventHeader extends StatelessWidget {
+  const _EventHeader({required this.plan, required this.bookings});
+  final PlanRef? plan;
+  final List<Booking> bookings;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = AppPalette.of(context);
+    final agreed = bookings.where((b) => b.isAgreed).fold<num>(0, (t, b) => t + b.offerPrice);
+    final plan = this.plan;
+    return InkWell(
+      borderRadius: BorderRadius.circular(16),
+      onTap: plan == null ? null : () => context.push('/events/${plan.id}'),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(4, 4, 4, 10),
+        child: Row(children: [
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              gradient: plan == null ? null : AppColors.brandGradient,
+              color: plan == null ? p.surface2 : null,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(plan == null ? Icons.inbox_outlined : Icons.event_available_rounded, color: plan == null ? p.muted : Colors.white, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(plan?.title ?? 'Not linked to an event', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+              Text(
+                plan == null
+                    ? '${bookings.length} ${bookings.length == 1 ? 'booking' : 'bookings'}'
+                    : [dateRange(plan.date, plan.endDate), if (plan.location.isNotEmpty) plan.location].join(' · '),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(color: p.muted, fontSize: 12.5),
+              ),
+            ]),
+          ),
+          if (plan != null)
+            Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+              Text('${money(agreed)} agreed', style: const TextStyle(fontWeight: FontWeight.w900)),
+              Text('${bookings.length} ${bookings.length == 1 ? 'service' : 'services'} · see event', style: TextStyle(color: p.muted, fontSize: 11.5)),
+            ]),
+        ]),
       ),
     );
   }

@@ -131,6 +131,10 @@ class Booking {
   }
 
   DateTime? get eventDate => parseDate(event['date'] ?? details['date']);
+  DateTime? get eventEndDate => parseDate(event['endDate'] ?? details['endDate']);
+  String get serviceCategory => _map(raw['serviceId'])['category'] as String? ?? '';
+  /// The organizer's own event this booking belongs to (null when not filed).
+  PlanRef? get plan => raw['planId'] is Map ? PlanRef(_map(raw['planId'])) : null;
   String get location => (event['location'] ?? details['location'] ?? '') as String;
   DateTime? get createdAt => parseDate(raw['createdAt']);
   List<OfferEntry> get history => _list(raw['negotiationHistory']).map(OfferEntry.new).toList();
@@ -186,5 +190,44 @@ class DesignItem {
   String get theme => raw['theme'] as String? ?? '';
   num get totalCost => _num(raw['totalCost']);
   String get imageUrl => Api.absolute(raw['image'] as String?) ?? Api.absolute('/api/v1/designs/$id/image')!;
+  /// Picture of one part: 0 is the full setup, then each decor item.
+  String partUrl(int part) => part == 0 ? imageUrl : Api.absolute('/api/v1/designs/$id/image?part=$part')!;
   List<Map<String, dynamic>> get elements => _list(raw['elements']);
+  String get style => raw['style'] as String? ?? '';
+  String get idea => raw['idea'] as String? ?? '';
+  bool get published => raw['published'] == true;
+  List<String> get palette => (raw['palette'] as List? ?? []).map((e) => '$e').toList();
+}
+
+/// The short form of an organizer's event, as it comes with a booking.
+class PlanRef {
+  PlanRef(this.raw);
+  final Map<String, dynamic> raw;
+  String get id => idOf(raw)!;
+  String get title => raw['title'] as String? ?? 'Event';
+  String get eventType => raw['eventType'] as String? ?? 'Event';
+  String get location => raw['location'] as String? ?? '';
+  DateTime? get date => parseDate(raw['date']);
+  DateTime? get endDate => parseDate(raw['endDate']);
+  num? get budget => raw['budget'] == null ? null : _num(raw['budget']);
+}
+
+class PlanTask {
+  PlanTask(this.raw);
+  final Map<String, dynamic> raw;
+  String get id => idOf(raw)!;
+  String get title => raw['title'] as String? ?? '';
+  String get description => raw['description'] as String? ?? '';
+  String? get category => raw['category'] as String?;
+  int get daysBefore => _num(raw['daysBefore']).toInt();
+  DateTime? get due => parseDate(raw['dueDate']);
+  bool get done => raw['status'] == 'done';
+  String? get bookingId => idOf(raw['bookingId']);
+}
+
+/// An organizer's event plan: dates (one or several days), place, budget and checklist.
+class EventPlan extends PlanRef {
+  EventPlan(super.raw);
+  List<PlanTask> get tasks => _list(raw['tasks']).map(PlanTask.new).toList();
+  int get doneCount => tasks.where((t) => t.done).length;
 }

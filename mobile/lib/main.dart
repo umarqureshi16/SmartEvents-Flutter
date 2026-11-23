@@ -50,6 +50,21 @@ class _SmartEventsAppState extends State<SmartEventsApp> {
           themeMode: app.themeMode,
           scaffoldMessengerKey: FirebaseService.instance.messengerKey,
           routerConfig: _router,
+          // On tablets, desktops and the web the app keeps a phone-like
+          // column in the middle instead of stretching every card edge to edge.
+          builder: (context, child) {
+            final width = MediaQuery.sizeOf(context).width;
+            if (width <= 720 || child == null) return child ?? const SizedBox.shrink();
+            return ColoredBox(
+              color: Theme.of(context).brightness == Brightness.dark ? const Color(0xFF05060A) : const Color(0xFFE9EAF2),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 560),
+                  child: ClipRect(child: MediaQuery(data: MediaQuery.of(context).copyWith(size: Size(560, MediaQuery.sizeOf(context).height)), child: child)),
+                ),
+              ),
+            );
+          },
         ),
       ),
     );

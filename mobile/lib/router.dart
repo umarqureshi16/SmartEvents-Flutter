@@ -6,6 +6,8 @@ import 'core/firebase_service.dart';
 import 'screens/auth/auth_screens.dart';
 import 'screens/bookings/bookings_screen.dart';
 import 'screens/bookings/negotiation_screen.dart';
+import 'screens/designs/design_studio_screen.dart';
+import 'screens/events/events_screen.dart';
 import 'screens/explore/event_detail_screen.dart';
 import 'screens/explore/explore_screen.dart';
 import 'screens/notifications/notifications_screen.dart';
@@ -60,6 +62,9 @@ GoRouter buildRouter(AppState app) {
       GoRoute(path: '/negotiate/:id', name: 'negotiate', builder: (_, s) => NegotiationScreen(id: s.pathParameters['id']!)),
       GoRoute(path: '/tickets', name: 'tickets', builder: (_, _) => const TicketsScreen()),
       GoRoute(path: '/notifications', name: 'notifications', builder: (_, _) => const NotificationsScreen()),
+      GoRoute(path: '/events', name: 'events', builder: (_, _) => const EventsScreen()),
+      GoRoute(path: '/events/:id', name: 'event-plan', builder: (_, s) => EventPlanScreen(id: s.pathParameters['id']!)),
+      GoRoute(path: '/designs', name: 'designs', builder: (_, _) => const DesignStudioScreen()),
     ],
   );
 }

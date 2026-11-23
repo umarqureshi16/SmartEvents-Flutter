@@ -124,7 +124,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                 crossAxisSpacing: 10,
                 childAspectRatio: 2.5,
                 children: [
-                  InfoTile(icon: Icons.calendar_today_rounded, label: 'Date', value: e.endDate != null ? '${shortDate(e.date)} – ${shortDate(e.endDate)}' : dayLabel(e.date)),
+                  InfoTile(icon: Icons.calendar_today_rounded, label: 'Date', value: dayCount(e.date, e.endDate) > 1 ? dateRange(e.date, e.endDate) : dayLabel(e.date)),
                   InfoTile(icon: Icons.place_outlined, label: 'Location', value: e.location.isEmpty ? 'To be agreed' : e.location),
                   InfoTile(icon: Icons.groups_rounded, label: 'Capacity', value: '${e.capacity} guests'),
                   InfoTile(icon: Icons.sell_outlined, label: 'Listed price', value: money(e.price)),
@@ -202,6 +202,17 @@ class _OfferSheetState extends State<OfferSheet> {
   late final _price = TextEditingController(text: (widget.event.price * 0.9).round().toString());
   final _note = TextEditingController();
   bool _busy = false;
+  // The organizer's own events, so the offer can be filed under one of them.
+  List<PlanRef> _plans = [];
+  String? _planId;
+
+  @override
+  void initState() {
+    super.initState();
+    Api.instance.get('/plans').then((r) {
+      if (mounted) setState(() => _plans = (r['data'] as List? ?? []).whereType<Map>().map((m) => PlanRef(Map<String, dynamic>.from(m))).toList());
+    }).catchError((_) {});
+  }
 
   Future<void> _send() async {
     final price = num.tryParse(_price.text.trim());
@@ -215,6 +226,7 @@ class _OfferSheetState extends State<OfferSheet> {
         'eventId': widget.event.id,
         'offerPrice': price,
         if (_note.text.trim().isNotEmpty) 'message': _note.text.trim(),
+        if (_planId != null) 'planId': _planId,
       });
       FirebaseService.instance.logEvent('make_offer', {'item_id': widget.event.id, 'value': price});
       if (mounted) Navigator.pop(context, idOf(res['data']));
@@ -251,6 +263,19 @@ class _OfferSheetState extends State<OfferSheet> {
           style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900),
           decoration: const InputDecoration(labelText: 'Your price', prefixText: '\$ '),
         ),
+        if (_plans.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          DropdownButtonFormField<String?>(
+            initialValue: _planId,
+            isExpanded: true,
+            decoration: const InputDecoration(labelText: 'For which of your events? (optional)'),
+            items: [
+              const DropdownMenuItem<String?>(value: null, child: Text('Not linked to an event')),
+              ..._plans.map((pl) => DropdownMenuItem<String?>(value: pl.id, child: Text('${pl.title} · ${dateRange(pl.date, pl.endDate, withDays: false)}', overflow: TextOverflow.ellipsis))),
+            ],
+            onChanged: (v) => setState(() => _planId = v),
+          ),
+        ],
         const SizedBox(height: 12),
         TextField(
           controller: _note,

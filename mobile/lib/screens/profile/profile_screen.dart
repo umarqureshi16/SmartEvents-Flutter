@@ -61,6 +61,11 @@ class ProfileScreen extends StatelessWidget {
         const SizedBox(height: 16),
         Card(
           child: Column(children: [
+            if (u.isVendor)
+              tile(Icons.palette_outlined, 'Design studio', subtitle: 'Create design options with AI pictures', onTap: () => context.push('/designs'))
+            else
+              tile(Icons.event_note_rounded, 'My events', subtitle: 'Plans over one or several days, with checklists', onTap: () => context.push('/events')),
+            const Divider(indent: 56),
             tile(Icons.qr_code_2_rounded, 'My passes', subtitle: 'Entry passes with QR codes', onTap: () => context.push('/tickets')),
             const Divider(indent: 56),
             tile(Icons.notifications_none_rounded, 'Notifications', subtitle: app.unread > 0 ? '${app.unread} unread' : 'All caught up', onTap: () => context.push('/notifications')),
