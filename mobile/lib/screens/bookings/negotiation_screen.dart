@@ -637,7 +637,7 @@ class _PriceSheet extends StatefulWidget {
 }
 
 class _PriceSheetState extends State<_PriceSheet> {
-  late final _price = TextEditingController(text: widget.initial.round().toString());
+  late final _price = TextEditingController(text: Money.fromBase(widget.initial).toString());
   late final _note = TextEditingController(text: widget.initialNote);
 
   void _done() {
@@ -646,7 +646,7 @@ class _PriceSheetState extends State<_PriceSheet> {
       showMessage(context, 'Enter a price greater than zero.', error: true);
       return;
     }
-    Navigator.pop(context, (v, _note.text.trim()));
+    Navigator.pop(context, (Money.toBase(v), _note.text.trim()));
   }
 
   void _step(int by) {
@@ -665,7 +665,7 @@ class _PriceSheetState extends State<_PriceSheet> {
         Text(widget.subtitle, style: TextStyle(color: p.muted)),
         const SizedBox(height: 18),
         Row(children: [
-          IconButton.outlined(tooltip: 'Lower by 50', onPressed: () => _step(-50), icon: const Icon(Icons.remove_rounded)),
+          IconButton.outlined(tooltip: 'Lower by ${Money.formatLocal(Money.step)}', onPressed: () => _step(-Money.step), icon: const Icon(Icons.remove_rounded)),
           const SizedBox(width: 10),
           Expanded(
             child: TextField(
@@ -675,11 +675,11 @@ class _PriceSheetState extends State<_PriceSheet> {
               keyboardType: TextInputType.number,
               inputFormatters: [FilteringTextInputFormatter.digitsOnly],
               style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w900),
-              decoration: const InputDecoration(prefixText: '\$ '),
+              decoration: InputDecoration(prefixText: '${Money.symbol} '),
             ),
           ),
           const SizedBox(width: 10),
-          IconButton.outlined(tooltip: 'Raise by 50', onPressed: () => _step(50), icon: const Icon(Icons.add_rounded)),
+          IconButton.outlined(tooltip: 'Raise by ${Money.formatLocal(Money.step)}', onPressed: () => _step(Money.step), icon: const Icon(Icons.add_rounded)),
         ]),
         const SizedBox(height: 12),
         TextField(

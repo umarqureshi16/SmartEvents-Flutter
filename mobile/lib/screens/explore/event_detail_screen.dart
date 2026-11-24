@@ -200,7 +200,7 @@ class OfferSheet extends StatefulWidget {
 }
 
 class _OfferSheetState extends State<OfferSheet> {
-  late final _price = TextEditingController(text: (widget.event.price * 0.9).round().toString());
+  late final _price = TextEditingController(text: Money.fromBase(widget.event.price * 0.9).toString());
   final _note = TextEditingController();
   bool _busy = false;
   // The organizer's own events, so the offer can be filed under one of them.
@@ -225,11 +225,11 @@ class _OfferSheetState extends State<OfferSheet> {
     try {
       final res = await Api.instance.post('/bookings', {
         'eventId': widget.event.id,
-        'offerPrice': price,
+        'offerPrice': Money.toBase(price),
         if (_note.text.trim().isNotEmpty) 'message': _note.text.trim(),
         if (_planId != null) 'planId': _planId,
       });
-      FirebaseService.instance.logEvent('make_offer', {'item_id': widget.event.id, 'value': price});
+      FirebaseService.instance.logEvent('make_offer', {'item_id': widget.event.id, 'value': Money.toBase(price)});
       if (mounted) Navigator.pop(context, idOf(res['data']));
     } catch (e) {
       if (mounted) showMessage(context, Api.messageOf(e), error: true);
@@ -253,7 +253,7 @@ class _OfferSheetState extends State<OfferSheet> {
           for (final pct in [0.8, 0.9, 1.0])
             ActionChip(
               label: Text(pct == 1.0 ? 'Listed ${money(listed)}' : '${((1 - pct) * 100).round()}% off · ${money(listed * pct)}'),
-              onPressed: () => setState(() => _price.text = (listed * pct).round().toString()),
+              onPressed: () => setState(() => _price.text = Money.fromBase(listed * pct).toString()),
             ),
         ]),
         const SizedBox(height: 14),
@@ -262,7 +262,7 @@ class _OfferSheetState extends State<OfferSheet> {
           keyboardType: TextInputType.number,
           inputFormatters: [FilteringTextInputFormatter.digitsOnly],
           style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900),
-          decoration: const InputDecoration(labelText: 'Your price', prefixText: '\$ '),
+          decoration: InputDecoration(labelText: 'Your price', prefixText: '${Money.symbol} '),
         ),
         if (_plans.isNotEmpty) ...[
           const SizedBox(height: 12),

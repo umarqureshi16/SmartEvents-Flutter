@@ -194,7 +194,7 @@ class _NewEventSheetState extends State<_NewEventSheet> {
         'date': _date!.toIso8601String().substring(0, 10),
         'days': _days,
         'location': _city.text.trim(),
-        if (num.tryParse(_budget.text.trim()) != null) 'budget': num.parse(_budget.text.trim()),
+        if (num.tryParse(_budget.text.trim()) != null) 'budget': Money.toBase(num.parse(_budget.text.trim())),
       });
       if (!mounted) return;
       showMessage(context, 'Your event is ready with its checklist.');
@@ -247,7 +247,7 @@ class _NewEventSheetState extends State<_NewEventSheet> {
           Row(children: [
             Expanded(child: TextField(controller: _city, textCapitalization: TextCapitalization.words, decoration: const InputDecoration(labelText: 'City', hintText: 'Lahore'))),
             const SizedBox(width: 12),
-            Expanded(child: TextField(controller: _budget, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Budget (optional)', prefixText: '\$ '))),
+            Expanded(child: TextField(controller: _budget, keyboardType: TextInputType.number, decoration: InputDecoration(labelText: 'Budget (optional)', prefixText: '${Money.symbol} '))),
           ]),
           const SizedBox(height: 20),
           FilledButton.icon(

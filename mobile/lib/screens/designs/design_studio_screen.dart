@@ -354,7 +354,7 @@ class _CreateSheetState extends State<_CreateSheet> {
         'theme': _theme.text.trim(),
         'style': _style.text.trim(),
         'eventType': _event,
-        'budget': price,
+        'budget': Money.toBase(price),
         'colors': _colors.text.split(RegExp(r'[\s,]+')).where((s) => s.isNotEmpty).toList(),
         'idea': _idea.text.trim(),
         'count': 3,
@@ -393,7 +393,7 @@ class _CreateSheetState extends State<_CreateSheet> {
               ),
             ),
             const SizedBox(width: 12),
-            Expanded(child: TextField(controller: _price, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Price', prefixText: '\$ '))),
+            Expanded(child: TextField(controller: _price, keyboardType: TextInputType.number, decoration: InputDecoration(labelText: 'Price', prefixText: '${Money.symbol} '))),
           ]),
           const SizedBox(height: 12),
           Row(children: [

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../core/api_client.dart';
 import '../core/firebase_service.dart';
+import '../core/format.dart';
 import '../core/session_store.dart';
 import '../core/socket_service.dart';
 import '../models/models.dart';
@@ -22,11 +23,26 @@ class AppState extends ChangeNotifier {
 
   bool get signedIn => user != null;
 
+  void _setUser(AppUser? u) {
+    user = u;
+    Money.setCountry(u?.country);
+  }
+
+  /// Today's exchange rates, so prices show in the user's own currency.
+  Future<void> loadRates() async {
+    try {
+      final res = await Api.instance.get('/locale');
+      Money.loadRates(res['data'] as Map?);
+      notifyListeners();
+    } catch (_) {/* older server: prices stay in dollars */}
+  }
+
   Future<void> restore() async {
+    loadRates();
     await SessionStore.instance.load();
     final saved = SessionStore.instance.user;
     if (SessionStore.instance.token != null && saved != null) {
-      user = AppUser(saved);
+      _setUser(AppUser(saved));
       _afterSignIn();
       refreshMe();
     }
@@ -38,7 +54,7 @@ class AppState extends ChangeNotifier {
     try {
       final res = await Api.instance.get('/auth/me');
       final u = Map<String, dynamic>.from(res['user'] as Map);
-      user = AppUser(u);
+      _setUser(AppUser(u));
       await SessionStore.instance.save(user: u);
       notifyListeners();
     } catch (_) {/* stay with the saved summary */}
@@ -76,7 +92,7 @@ class AppState extends ChangeNotifier {
   Future<void> _start(Map<String, dynamic> res) async {
     final u = Map<String, dynamic>.from(res['user'] as Map);
     await SessionStore.instance.save(token: res['token'] as String?, refreshToken: res['refreshToken'] as String?, user: u);
-    user = AppUser(u);
+    _setUser(AppUser(u));
     _afterSignIn();
     notifyListeners();
     refreshMe();
@@ -111,7 +127,7 @@ class AppState extends ChangeNotifier {
     SocketService.instance.disconnect();
     await SessionStore.instance.clear();
     FirebaseService.instance.setUser(null, null);
-    user = null;
+    _setUser(null);
     unread = 0;
     notice = expired ? 'Your session ended. Please sign in again.' : null;
     notifyListeners();

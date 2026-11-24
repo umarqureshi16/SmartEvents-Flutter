@@ -22,6 +22,8 @@ class AppUser {
   bool get isAdmin => role == 'admin' || role == 'superadmin';
   num get trustScore => _num(raw['trustScore'] ?? 100);
   String? get avatar => Api.absolute(_map(raw['profile'])['avatar'] as String?);
+  /// Country from the profile (sets the currency); null on servers without it.
+  String? get country => _map(raw['locale'])['country'] as String?;
   String get roleLabel => const {'customer': 'Organizer', 'provider': 'Vendor', 'admin': 'Admin', 'superadmin': 'Super admin'}[role] ?? titleCase(role);
 }
 
