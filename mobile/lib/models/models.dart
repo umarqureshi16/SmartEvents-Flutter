@@ -40,7 +40,8 @@ class EventItem {
   String get status => raw['status'] as String? ?? 'upcoming';
   String? get image => Api.absolute(raw['image'] as String?);
   String? get vendorId => idOf(raw['createdBy']);
-  String get vendorName => _map(raw['createdBy'])['name'] as String? ?? 'Vendor';
+  /// The vendor's name when the API included it (vendor profile lists leave it out).
+  String? get vendorName => _map(raw['createdBy'])['name'] as String?;
 }
 
 class Package {

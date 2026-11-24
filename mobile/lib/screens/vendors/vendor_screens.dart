@@ -219,7 +219,8 @@ class _VendorDetailScreenState extends State<VendorDetailScreen> {
             SliverAppBar(
               expandedHeight: 220,
               pinned: true,
-              title: Text(v.name),
+              foregroundColor: Colors.white,
+              backgroundColor: const Color(0xFF1E1B4B),
               flexibleSpace: FlexibleSpaceBar(
                 background: Stack(fit: StackFit.expand, children: [
                   NetImage(v.cover, icon: vendorCategories[v.category] ?? Icons.storefront_rounded),

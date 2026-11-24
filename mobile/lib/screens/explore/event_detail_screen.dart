@@ -138,8 +138,8 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
               Card(
                 child: ListTile(
                   contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                  leading: Avatar(name: e.vendorName),
-                  title: Text(e.vendorName, style: const TextStyle(fontWeight: FontWeight.w800)),
+                  leading: Avatar(name: e.vendorName ?? 'Vendor'),
+                  title: Text(e.vendorName ?? 'Vendor', style: const TextStyle(fontWeight: FontWeight.w800)),
                   subtitle: const Text('See profile, packages and reviews'),
                   trailing: const Icon(Icons.chevron_right_rounded),
                   onTap: e.vendorId == null ? null : () => context.push('/vendor/${e.vendorId}'),
@@ -174,8 +174,9 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                       Expanded(
                         child: OutlinedButton.icon(
                           onPressed: _buying ? null : _getPass,
+                          style: OutlinedButton.styleFrom(padding: const EdgeInsets.symmetric(horizontal: 10)),
                           icon: const Icon(Icons.qr_code_2_rounded),
-                          label: const Text('Get pass'),
+                          label: const Text('Pass', maxLines: 1, overflow: TextOverflow.ellipsis),
                         ),
                       ),
                       const SizedBox(width: 10),

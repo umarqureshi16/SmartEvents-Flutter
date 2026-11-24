@@ -311,7 +311,8 @@ class EventCard extends StatelessWidget {
                 Expanded(child: Text(e.location, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: p.muted, fontSize: 13))),
               ]),
               const SizedBox(height: 6),
-              Text('by ${e.vendorName}', style: TextStyle(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.w700, fontSize: 13)),
+              if (e.vendorName != null)
+                Text('by ${e.vendorName}', style: TextStyle(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.w700, fontSize: 13)),
             ]),
           ),
         ]),
