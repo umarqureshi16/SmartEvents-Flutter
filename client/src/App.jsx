@@ -50,6 +50,7 @@ const AIConcierge          = lazy(() => import('./pages/AI/AIConcierge'));
 const Favorites            = lazy(() => import('./pages/Favorites/Favorites'));
 const ProfileManager       = lazy(() => import('./pages/Vendors/ProfileManager'));
 const VendorDesignStudio   = lazy(() => import('./pages/Vendors/VendorDesignStudio'));
+const DesignLab            = lazy(() => import('./pages/DesignLab/DesignLab'));
 const OrganizerProfile     = lazy(() => import('./pages/Organizer/OrganizerProfile'));
 const OrganizerCard        = lazy(() => import('./pages/Organizer/OrganizerCard'));
 const ProviderReviews      = lazy(() => import('./pages/Reviews/ProviderReviews'));
@@ -67,6 +68,7 @@ import CustomLoader from './components/CustomLoader';
 import { useSelector, useDispatch } from 'react-redux';
 import { setCredentials, logout, authResolved } from './store/slices/authSlice';
 import axios from './api/axios';
+import { loadRates, setMoneyLocale, useMoney } from './utils/money';
 import ErrorBoundary from './components/ErrorBoundary';
 import ProtectedRoute from './components/ProtectedRoute';
 
@@ -82,6 +84,12 @@ function RouteFallback() {
 
 function App() {
   const { user } = useSelector((state) => state.auth);
+  // Prices show in the currency of the user's country (utils/money.js).
+  const money = useMoney();
+  useEffect(() => {
+    axios.get('/locale').then((r) => loadRates(r.data.data)).catch(() => { /* fixed rates stay */ });
+  }, []);
+  useEffect(() => { setMoneyLocale(user?.locale); }, [user?.locale?.country, user?.locale?.region]); // eslint-disable-line react-hooks/exhaustive-deps
   const dispatch = useDispatch();
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
@@ -148,7 +156,7 @@ function App() {
                 <AnimatePresence mode="wait">
                   {/* Lazy routes need a boundary while their chunk loads. */}
                   <Suspense fallback={<RouteFallback />}>
-                  <Routes location={location} key={location.pathname}>
+                  <Routes location={location} key={`${location.pathname}-${money.currency}-${money.rate}`}>
                     {/* ---------- Public ---------- */}
                     <Route path="/" element={user ? <Dashboard user={user} /> : <Home user={user} />} />
                     <Route path="/home" element={<Home user={user} />} />
@@ -186,6 +194,8 @@ function App() {
                       <Route path="/organizer/:id" element={<OrganizerCard />} />
                       <Route path="/planner" element={user?.role === 'customer' ? <EventPlanner /> : <Navigate to="/dashboard" replace />} />
                       <Route path="/ai-concierge" element={<AIConcierge />} />
+                      {/* Design Lab: kind = user (a vendor's own lab, id "me"), design or booking. */}
+                      <Route path="/design-lab/:kind/:id" element={<DesignLab />} />
                     </Route>
 
                     {/* ---------- Providers (and admins, for support) ---------- */}

@@ -43,6 +43,8 @@ function createApp() {
     }));
     app.use(cookieParser());
 
+    // Design Lab boards carry a canvas and its exported picture (checked again in the service).
+    app.use('/api/v1/designs/boards', express.json({ limit: '9mb' }));
     app.use(express.json({ limit: '1mb' }));
     app.use(express.urlencoded({ extended: true, limit: '1mb' }));
     app.use(sanitize);
@@ -149,6 +151,7 @@ app.get('/', (req, res) => {
     app.use('/api/v1/events', require('./routes/eventRoutes'));
     app.use('/api/v1/chatbot', require('./routes/chatbotRoutes'));
     app.use('/api/v1/vendor', require('./routes/vendorRoutes'));
+    app.use('/api/v1/locale', require('./routes/localeRoutes'));
     app.use('/api/v1/services', require('./routes/serviceRoutes'));
     app.use('/api/v1/requests', require('./routes/requestRoutes'));
     app.use('/api/v1/admin', require('./routes/adminRoutes'));
