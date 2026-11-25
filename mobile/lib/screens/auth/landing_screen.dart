@@ -11,6 +11,7 @@ import '../../core/format.dart';
 import '../../core/theme.dart';
 import '../../models/models.dart';
 import '../../state/app_state.dart';
+import '../../widgets/common.dart' show ThemeToggleButton;
 
 /// The landing page, the same one as the website's home page
 /// (client/src/pages/Home.jsx), laid out for phones: hero with the rotating
@@ -273,6 +274,7 @@ class _TopBar extends StatelessWidget {
           Text('SmartEvents', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 19, letterSpacing: -0.5, color: _L.fg(context))),
         ]),
         actions: [
+          const ThemeToggleButton(),
           TextButton(onPressed: () => context.push('/login'), child: const Text('Sign in')),
           Padding(
             padding: const EdgeInsets.only(right: 12),

@@ -94,7 +94,8 @@ class AppTheme {
 
     final scheme = ColorScheme.fromSeed(seedColor: AppColors.brand, brightness: b).copyWith(
       primary: brand,
-      onPrimary: Colors.white,
+      // Like the website: dark text on the lighter brand colour in dark mode.
+      onPrimary: dark ? AppColors.bgDark : Colors.white,
       surface: surface,
       onSurface: fg,
       error: AppColors.danger,
@@ -164,7 +165,7 @@ class AppTheme {
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
           backgroundColor: brand,
-          foregroundColor: Colors.white,
+          foregroundColor: dark ? AppColors.bgDark : Colors.white,
           minimumSize: const Size(48, 52),
           textStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -187,7 +188,7 @@ class AppTheme {
         selectedColor: brand,
         side: BorderSide(color: border),
         labelStyle: TextStyle(color: fg, fontWeight: FontWeight.w600),
-        secondaryLabelStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+        secondaryLabelStyle: TextStyle(color: dark ? AppColors.bgDark : Colors.white, fontWeight: FontWeight.w700),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
         showCheckmark: false,
       ),
@@ -218,7 +219,7 @@ class AppTheme {
       segmentedButtonTheme: SegmentedButtonThemeData(
         style: SegmentedButton.styleFrom(
           selectedBackgroundColor: brand,
-          selectedForegroundColor: Colors.white,
+          selectedForegroundColor: dark ? AppColors.bgDark : Colors.white,
           side: BorderSide(color: border),
           textStyle: const TextStyle(fontWeight: FontWeight.w700),
         ),

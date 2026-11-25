@@ -123,6 +123,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
               const Text('Find your next event'),
             ]),
             actions: [
+              const ThemeToggleButton(),
               _BellButton(count: app.unread),
               const SizedBox(width: 8),
             ],

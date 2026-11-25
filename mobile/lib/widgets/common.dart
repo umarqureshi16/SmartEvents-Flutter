@@ -1,9 +1,11 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:shimmer/shimmer.dart';
 
 import '../core/format.dart';
 import '../core/theme.dart';
+import '../state/app_state.dart';
 
 /// A network picture with a soft placeholder and a branded fallback.
 class NetImage extends StatelessWidget {
@@ -242,4 +244,27 @@ Future<bool> confirmDialog(BuildContext context, {required String title, require
     ),
   );
   return ok == true;
+}
+
+
+/// Light / dark switch (sun in dark mode, moon in light mode), like the
+/// website's navbar toggle. The choice is remembered between launches.
+class ThemeToggleButton extends StatelessWidget {
+  const ThemeToggleButton({super.key, this.color});
+  final Color? color;
+
+  @override
+  Widget build(BuildContext context) {
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    return IconButton(
+      tooltip: dark ? 'Switch to light mode' : 'Switch to dark mode',
+      color: color,
+      onPressed: () => context.read<AppState>().toggleTheme(context),
+      icon: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 300),
+        transitionBuilder: (child, a) => RotationTransition(turns: Tween(begin: 0.75, end: 1.0).animate(a), child: FadeTransition(opacity: a, child: child)),
+        child: Icon(dark ? Icons.light_mode_rounded : Icons.dark_mode_rounded, key: ValueKey(dark)),
+      ),
+    );
+  }
 }

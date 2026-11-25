@@ -12,6 +12,7 @@ class SessionStore {
   static const _kToken = 'se_token';
   static const _kRefresh = 'se_refresh';
   static const _kUser = 'se_user';
+  static const _kTheme = 'se_theme';
 
   String? token;
   String? refreshToken;
@@ -47,7 +48,25 @@ class SessionStore {
     refreshToken = null;
     user = null;
     try {
-      await _storage.deleteAll();
+      // Only the session: the light / dark choice stays after signing out.
+      for (final k in [_kToken, _kRefresh, _kUser]) {
+        await _storage.delete(key: k);
+      }
+    } catch (_) {}
+  }
+
+  /// 'light', 'dark' or 'system' (null when never chosen).
+  Future<String?> readTheme() async {
+    try {
+      return await _storage.read(key: _kTheme);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> saveTheme(String mode) async {
+    try {
+      await _storage.write(key: _kTheme, value: mode);
     } catch (_) {}
   }
 }

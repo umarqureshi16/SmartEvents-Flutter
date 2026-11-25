@@ -19,7 +19,7 @@ class _AuthScaffold extends StatelessWidget {
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
     return Scaffold(
-      appBar: AppBar(),
+      appBar: AppBar(actions: const [ThemeToggleButton(), SizedBox(width: 8)]),
       body: SafeArea(
         child: Center(
           child: ConstrainedBox(

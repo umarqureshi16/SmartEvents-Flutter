@@ -43,6 +43,11 @@ class AppState extends ChangeNotifier {
   Future<void> restore() async {
     loadRates();
     await SessionStore.instance.load();
+    themeMode = switch (await SessionStore.instance.readTheme()) {
+      'light' => ThemeMode.light,
+      'dark' => ThemeMode.dark,
+      _ => ThemeMode.system,
+    };
     final saved = SessionStore.instance.user;
     if (SessionStore.instance.token != null && saved != null) {
       _setUser(AppUser(saved));
@@ -188,5 +193,10 @@ class AppState extends ChangeNotifier {
   void setTheme(ThemeMode m) {
     themeMode = m;
     notifyListeners();
+    SessionStore.instance.saveTheme(m.name);
   }
+
+  /// Flips between light and dark from whatever is showing now.
+  void toggleTheme(BuildContext context) =>
+      setTheme(Theme.of(context).brightness == Brightness.dark ? ThemeMode.light : ThemeMode.dark);
 }
