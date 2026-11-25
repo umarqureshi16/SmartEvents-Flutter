@@ -1,13 +1,17 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 
 import '../../core/api_client.dart';
 import '../../core/format.dart';
 import '../../core/theme.dart';
+import '../../core/validators.dart';
 import '../../models/models.dart';
+import '../../state/app_state.dart';
 import '../../widgets/common.dart';
 import '../explore/explore_screen.dart' show EventCard;
 
@@ -180,7 +184,32 @@ class _VendorDetailScreenState extends State<VendorDetailScreen> {
   VendorItem? _vendor;
   List<EventItem> _events = [];
   List<DesignItem> _designs = [];
+  List<Map<String, dynamic>> _services = [];
   String? _error;
+  bool _savingFollow = false;
+
+  bool _following(AppState app, VendorItem v) =>
+      ((app.user?.raw['favorites'] as List?) ?? const []).map((e) => idOf(e)).contains(v.userId);
+
+  /// Follow / unfollow (the website's "Save vendor"): lists the vendor under Favorites.
+  Future<void> _toggleFollow(VendorItem v) async {
+    final app = context.read<AppState>();
+    final on = _following(app, v);
+    setState(() => _savingFollow = true);
+    try {
+      if (on) {
+        await Api.instance.delete('/auth/favorites/${v.userId}');
+      } else {
+        await Api.instance.post('/auth/favorites', {'vendorId': v.userId});
+      }
+      await app.refreshMe();
+      if (mounted) showMessage(context, on ? 'Removed from your favorites.' : 'Saved to your favorites.');
+    } catch (e) {
+      if (mounted) showMessage(context, Api.messageOf(e), error: true);
+    } finally {
+      if (mounted) setState(() => _savingFollow = false);
+    }
+  }
 
   @override
   void initState() {
@@ -196,11 +225,23 @@ class _VendorDetailScreenState extends State<VendorDetailScreen> {
       setState(() {
         _vendor = VendorItem(Map<String, dynamic>.from(res['profile'] as Map));
         _events = (res['events'] as List? ?? []).whereType<Map>().map((m) => EventItem(Map<String, dynamic>.from(m))).toList();
+        _services = (res['services'] as List? ?? []).whereType<Map>().map((m) => Map<String, dynamic>.from(m)).toList();
         _designs = (designs['data'] as List? ?? []).whereType<Map>().map((m) => DesignItem(Map<String, dynamic>.from(m))).toList();
       });
     } catch (e) {
       setState(() => _error = Api.messageOf(e));
     }
+  }
+
+  /// Sends an offer straight to this vendor (optionally for one package or
+  /// design) and opens the negotiation, like "Request a quote" on the website.
+  Future<void> _offer(VendorItem v, {String? title, num? price, String? serviceId, String? eventType, DesignItem? design}) async {
+    final id = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => VendorOfferSheet(vendor: v, title: title, price: price, serviceId: serviceId, eventType: eventType, design: design),
+    );
+    if (id != null && mounted) context.push('/negotiate/$id');
   }
 
   @override
@@ -211,9 +252,28 @@ class _VendorDetailScreenState extends State<VendorDetailScreen> {
     final p = AppPalette.of(context);
     final stats = v.stats;
 
+    final organizer = context.watch<AppState>().user?.role == 'customer';
+    final services = [
+      for (final s in _services)
+        (Package(s), idOf(s), s['eventType'] as String?),
+      for (final pk in v.packages) (pk, null, null),
+    ];
     return DefaultTabController(
       length: 3,
       child: Scaffold(
+        bottomNavigationBar: organizer
+            ? SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+                  child: FilledButton.icon(
+                    onPressed: () => _offer(v),
+                    style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(54)),
+                    icon: const Icon(Icons.request_quote_rounded),
+                    label: const Text('Request a quote'),
+                  ),
+                ),
+              )
+            : null,
         body: NestedScrollView(
           headerSliverBuilder: (_, _) => [
             SliverAppBar(
@@ -221,6 +281,17 @@ class _VendorDetailScreenState extends State<VendorDetailScreen> {
               pinned: true,
               foregroundColor: Colors.white,
               backgroundColor: const Color(0xFF1E1B4B),
+              actions: [
+                if (context.watch<AppState>().user?.role == 'customer')
+                  Builder(builder: (context) {
+                    final on = _following(context.watch<AppState>(), v);
+                    return IconButton(
+                      tooltip: on ? 'Remove from favorites' : 'Save to favorites',
+                      onPressed: _savingFollow ? null : () => _toggleFollow(v),
+                      icon: Icon(on ? Icons.favorite_rounded : Icons.favorite_border_rounded, color: on ? const Color(0xFFFB7185) : Colors.white),
+                    );
+                  }),
+              ],
               flexibleSpace: FlexibleSpaceBar(
                 background: Stack(fit: StackFit.expand, children: [
                   NetImage(v.cover, icon: vendorCategories[v.category] ?? Icons.storefront_rounded),
@@ -277,13 +348,17 @@ class _VendorDetailScreenState extends State<VendorDetailScreen> {
                     separatorBuilder: (_, _) => const SizedBox(height: 14),
                     itemBuilder: (_, i) => EventCard(_events[i]),
                   ),
-            v.packages.isEmpty
+            services.isEmpty
                 ? const EmptyState(icon: Icons.inventory_2_outlined, title: 'No packages yet')
                 : ListView.separated(
                     padding: const EdgeInsets.all(16),
-                    itemCount: v.packages.length,
+                    itemCount: services.length,
                     separatorBuilder: (_, _) => const SizedBox(height: 12),
-                    itemBuilder: (_, i) => _PackageCard(v.packages[i]),
+                    itemBuilder: (_, i) {
+                      final (pk, serviceId, type) = services[i];
+                      return _PackageCard(pk,
+                          onBook: organizer ? () => _offer(v, title: pk.title, price: pk.price, serviceId: serviceId, eventType: type) : null);
+                    },
                   ),
             _designs.isEmpty
                 ? const EmptyState(icon: Icons.palette_outlined, title: 'No published designs')
@@ -291,7 +366,7 @@ class _VendorDetailScreenState extends State<VendorDetailScreen> {
                     padding: const EdgeInsets.all(16),
                     itemCount: _designs.length,
                     separatorBuilder: (_, _) => const SizedBox(height: 14),
-                    itemBuilder: (_, i) => _DesignCard(_designs[i]),
+                    itemBuilder: (_, i) => _DesignCard(_designs[i], onBook: organizer ? () => _offer(v, design: _designs[i]) : null),
                   ),
           ]),
         ),
@@ -327,8 +402,9 @@ class _Stat extends StatelessWidget {
 }
 
 class _PackageCard extends StatelessWidget {
-  const _PackageCard(this.pkg);
+  const _PackageCard(this.pkg, {this.onBook});
   final Package pkg;
+  final VoidCallback? onBook;
 
   @override
   Widget build(BuildContext context) {
@@ -357,6 +433,10 @@ class _PackageCard extends StatelessWidget {
                 ]),
               ),
           ],
+          if (onBook != null) ...[
+            const SizedBox(height: 12),
+            OutlinedButton.icon(onPressed: onBook, icon: const Icon(Icons.handshake_outlined, size: 18), label: const Text('Make an offer')),
+          ],
         ]),
       ),
     );
@@ -364,8 +444,9 @@ class _PackageCard extends StatelessWidget {
 }
 
 class _DesignCard extends StatelessWidget {
-  const _DesignCard(this.d);
+  const _DesignCard(this.d, {this.onBook});
   final DesignItem d;
+  final VoidCallback? onBook;
 
   @override
   Widget build(BuildContext context) {
@@ -397,9 +478,147 @@ class _DesignCard extends StatelessWidget {
                   Text(money(e['cost'] as num?), style: TextStyle(color: p.muted)),
                 ]),
               ),
+            if (onBook != null) ...[
+              const SizedBox(height: 12),
+              FilledButton.icon(onPressed: onBook, icon: const Icon(Icons.event_available_rounded, size: 18), label: const Text('Book this design')),
+            ],
           ]),
         ),
       ]),
     );
   }
+}
+
+/// An offer sent straight to a vendor: the price, the event day, where and
+/// what for. With [design], it books that design instead.
+class VendorOfferSheet extends StatefulWidget {
+  const VendorOfferSheet({super.key, required this.vendor, this.title, this.price, this.serviceId, this.eventType, this.design});
+  final VendorItem vendor;
+  final String? title;
+  final num? price;
+  final String? serviceId;
+  final String? eventType;
+  final DesignItem? design;
+  @override
+  State<VendorOfferSheet> createState() => _VendorOfferSheetState();
+}
+
+class _VendorOfferSheetState extends State<VendorOfferSheet> {
+  static const _types = ['Wedding', 'Mehndi', 'Walima', 'Nikah', 'Birthday', 'Corporate', 'Conference', 'Concert', 'Exhibition', 'Event'];
+  final _form = GlobalKey<FormState>();
+  late final _price = TextEditingController(
+      text: widget.design != null ? '${Money.fromBase(widget.design!.totalCost)}' : (widget.price != null && widget.price! > 0 ? '${Money.fromBase(widget.price)}' : ''));
+  late final _location = TextEditingController(text: widget.vendor.location);
+  late final _message = TextEditingController(
+      text: widget.design != null
+          ? 'Hello! I would like the "${widget.design!.title}" design.'
+          : widget.title != null
+              ? 'Hello! I would like to book "${widget.title}".'
+              : 'Hello! Could you quote for my event?');
+  late String _type = () {
+    final t = widget.design?.eventType ?? widget.eventType;
+    final match = _types.where((x) => x.toLowerCase() == (t ?? '').toLowerCase());
+    return match.isNotEmpty ? match.first : 'Wedding';
+  }();
+  DateTime? _date;
+  String? _dateError;
+  bool _busy = false;
+
+  Future<void> _pickDate() async {
+    final now = DateTime.now();
+    final d = await showDatePicker(context: context, firstDate: DateTime(now.year, now.month, now.day), lastDate: DateTime(now.year + 3), initialDate: _date ?? now.add(const Duration(days: 30)));
+    if (d != null) setState(() => _date = d);
+  }
+
+  Future<void> _send() async {
+    setState(() => _dateError = _date == null ? 'Pick the event date' : null);
+    if (!_form.currentState!.validate() || _date == null) return;
+    setState(() => _busy = true);
+    final date = DateTime(_date!.year, _date!.month, _date!.day, 12).toUtc().toIso8601String();
+    final price = Money.toBase(num.parse(_price.text.trim()));
+    final message = _message.text.trim();
+    try {
+      String? id;
+      if (widget.design != null) {
+        final res = await Api.instance.post('/designs/${widget.design!.id}/book', {'date': date, 'location': _location.text.trim(), 'offerPrice': price, 'message': message});
+        id = idOf((res['data'] as Map?)?['bookingId']);
+      } else {
+        final res = await Api.instance.post('/bookings', {
+          'vendorId': widget.vendor.userId,
+          'serviceId': ?widget.serviceId,
+          'offerPrice': price,
+          if (message.isNotEmpty) 'message': message,
+          'eventDetails': {'eventType': _type, 'date': date, 'location': _location.text.trim(), if (message.isNotEmpty) 'message': message},
+        });
+        id = idOf(res['booking'] ?? res['data']);
+      }
+      if (mounted) Navigator.pop(context, id);
+    } catch (e) {
+      if (mounted) showMessage(context, Api.messageOf(e), error: true);
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: EdgeInsets.fromLTRB(20, 0, 20, 20 + MediaQuery.of(context).viewInsets.bottom),
+        child: Form(
+          key: _form,
+          child: ListView(shrinkWrap: true, children: [
+            Text(widget.design != null ? 'Book this design' : (widget.title ?? 'Request a quote'), style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 4),
+            Text('${widget.vendor.name} can accept, decline or counter.', style: TextStyle(color: AppPalette.of(context).muted)),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _price,
+              keyboardType: TextInputType.number,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
+              decoration: InputDecoration(labelText: 'Your offer', prefixText: '${Money.symbol} '),
+              validator: (v) => V.positive(v, label: 'Offer price'),
+            ),
+            const SizedBox(height: 12),
+            Row(children: [
+              Expanded(
+                child: InkWell(
+                  onTap: _pickDate,
+                  child: InputDecorator(
+                    decoration: InputDecoration(labelText: 'Event date', errorText: _dateError),
+                    child: Text(_date == null ? 'Pick a date' : shortDate(_date)),
+                  ),
+                ),
+              ),
+              if (widget.design == null) ...[
+                const SizedBox(width: 12),
+                Expanded(
+                  child: DropdownButtonFormField<String>(
+                    initialValue: _type,
+                    isExpanded: true,
+                    decoration: const InputDecoration(labelText: 'Event'),
+                    items: _types.map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
+                    onChanged: (v) => setState(() => _type = v ?? _type),
+                  ),
+                ),
+              ],
+            ]),
+            const SizedBox(height: 12),
+            TextFormField(controller: _location, decoration: const InputDecoration(labelText: 'Where'), validator: (v) => V.length(v, min: 2, label: 'Location')),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _message,
+              maxLines: 2,
+              maxLength: 500,
+              decoration: const InputDecoration(labelText: 'Message', alignLabelWithHint: true),
+              validator: (v) => (v ?? '').length > 500 ? 'Keep it under 500 characters' : null,
+            ),
+            const SizedBox(height: 6),
+            FilledButton(
+              onPressed: _busy ? null : _send,
+              style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(54)),
+              child: Text(_busy ? 'Sending…' : (widget.design != null ? 'Book design' : 'Send offer')),
+            ),
+          ]),
+        ),
+      );
 }

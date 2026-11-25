@@ -7,9 +7,12 @@ import 'session_store.dart';
 
 /// An error from the API, with a message that can be shown to people.
 class ApiException implements Exception {
-  ApiException(this.message, {this.status});
+  ApiException(this.message, {this.status, this.code});
   final String message;
   final int? status;
+
+  /// The server's machine-readable reason, e.g. ADMIN_CODE_REQUIRED.
+  final String? code;
 
   @override
   String toString() => message;
@@ -36,7 +39,7 @@ class Api {
       onError: (err, handler) async {
         final path = err.requestOptions.path;
         final retried = err.requestOptions.extra['retried'] == true;
-        final isAuthCall = path.contains('/auth/login') || path.contains('/auth/register') || path.contains('/auth/refresh');
+        final isAuthCall = path.contains('/auth/login') || path.contains('/auth/register') || path.contains('/auth/refresh') || path.contains('/auth/google');
         if (err.response?.statusCode == 401 && !retried && !isAuthCall && SessionStore.instance.refreshToken != null) {
           if (await _refresh()) {
             final opts = err.requestOptions
@@ -105,7 +108,8 @@ class Api {
       final data = res.data;
       return data is Map<String, dynamic> ? data : {'data': data};
     } on DioException catch (e) {
-      throw ApiException(messageOf(e), status: e.response?.statusCode);
+      final data = e.response?.data;
+      throw ApiException(messageOf(e), status: e.response?.statusCode, code: data is Map ? data['code'] as String? : null);
     }
   }
 

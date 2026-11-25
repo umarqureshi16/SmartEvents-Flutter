@@ -10,6 +10,7 @@ import '../../core/firebase_service.dart';
 import '../../core/format.dart';
 import '../../core/socket_service.dart';
 import '../../core/theme.dart';
+import '../../core/validators.dart';
 import '../../models/models.dart';
 import '../../state/app_state.dart';
 import '../../widgets/common.dart';
@@ -147,6 +148,89 @@ class _NegotiationScreenState extends State<NegotiationScreen> {
     }, 'Offer accepted. The booking is confirmed.');
   }
 
+  /// What either side can do once a price is agreed: cancel, confirm
+  /// delivery (organizer), report a problem, or review the event.
+  Widget? _afterDeal(Booking b, String me) {
+    final customer = b.customerId == me;
+    final eventId = idOf(b.raw['eventId']);
+    final buttons = <Widget>[
+      if (b.status == 'confirmed' && customer)
+        FilledButton.icon(
+          onPressed: _busy ? null : _complete,
+          style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(46)),
+          icon: const Icon(Icons.task_alt_rounded),
+          label: const Text('Mark as delivered'),
+        ),
+      if (b.status == 'completed' && customer && eventId != null)
+        FilledButton.icon(
+          onPressed: _busy ? null : () => _review(eventId),
+          style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(46)),
+          icon: const Icon(Icons.star_rounded),
+          label: const Text('Leave a review'),
+        ),
+      if (b.status == 'confirmed' || b.status == 'completed')
+        Row(children: [
+          if (b.status == 'confirmed')
+            Expanded(
+              child: OutlinedButton(
+                onPressed: _busy ? null : _cancel,
+                style: OutlinedButton.styleFrom(foregroundColor: AppColors.danger, side: BorderSide(color: AppColors.danger.withValues(alpha: 0.4))),
+                child: const Text('Cancel booking'),
+              ),
+            ),
+          if (b.status == 'confirmed') const SizedBox(width: 8),
+          Expanded(child: OutlinedButton(onPressed: _busy ? null : _dispute, child: const Text('Report a problem'))),
+        ]),
+    ];
+    if (buttons.isEmpty) return null;
+    return Padding(
+      padding: const EdgeInsets.only(top: 12),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        for (final w in buttons) Padding(padding: const EdgeInsets.only(bottom: 8), child: w),
+      ]),
+    );
+  }
+
+  Future<void> _complete() async {
+    if (!await confirmDialog(context,
+        title: 'Mark as delivered?',
+        message: 'Confirm the vendor delivered. The money held in escrow is released to them.',
+        confirm: 'Yes, delivered')) {
+      return;
+    }
+    await _act(() => Api.instance.put('/bookings/${widget.id}/complete'), 'Marked as delivered. Payment released.');
+  }
+
+  Future<void> _cancel() async {
+    if (!await confirmDialog(context,
+        title: 'Cancel this booking?',
+        message: 'The booking is cancelled and any money in escrow goes back to the organizer.',
+        confirm: 'Cancel booking',
+        danger: true)) {
+      return;
+    }
+    await _act(() => Api.instance.put('/bookings/${widget.id}/cancel'), 'Booking cancelled.');
+  }
+
+  Future<void> _dispute() async {
+    final reason = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => const _DisputeSheet(),
+    );
+    if (reason == null) return;
+    await _act(() => Api.instance.post('/bookings/${widget.id}/dispute', {'reason': reason}), 'Problem reported. An administrator will review it.');
+  }
+
+  Future<void> _review(String eventId) async {
+    final done = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => ReviewSheet(eventId: eventId),
+    );
+    if (done == true) _toast('Thanks for your review!');
+  }
+
   Future<void> _decline() async {
     if (!await confirmDialog(context,
         title: 'Decline this offer?', message: 'This closes the negotiation. You can still send messages.', confirm: 'Decline', danger: true)) {
@@ -239,7 +323,7 @@ class _NegotiationScreenState extends State<NegotiationScreen> {
       body: Column(children: [
         AnimatedSize(
           duration: const Duration(milliseconds: 220),
-          child: _dealOpen ? _DealPanel(b: b, me: me.id, busy: _busy, onAccept: _accept, onDecline: _decline, onCounter: () => _priceSheet(revise: false), onRevise: () => _priceSheet(revise: true)) : const SizedBox(width: double.infinity),
+          child: _dealOpen ? _DealPanel(b: b, me: me.id, busy: _busy, onAccept: _accept, onDecline: _decline, onCounter: () => _priceSheet(revise: false), onRevise: () => _priceSheet(revise: true), after: _afterDeal(b, me.id)) : const SizedBox(width: double.infinity),
         ),
         Expanded(
           child: items.isEmpty
@@ -278,7 +362,8 @@ class _NegotiationScreenState extends State<NegotiationScreen> {
 }
 
 class _DealPanel extends StatelessWidget {
-  const _DealPanel({required this.b, required this.me, required this.busy, required this.onAccept, required this.onDecline, required this.onCounter, required this.onRevise});
+  const _DealPanel({required this.b, required this.me, required this.busy, required this.onAccept, required this.onDecline, required this.onCounter, required this.onRevise, this.after});
+  final Widget? after;
   final Booking b;
   final String me;
   final bool busy;
@@ -297,8 +382,12 @@ class _DealPanel extends StatelessWidget {
     final diff = b.listedPrice > 0 ? ((b.offerPrice - b.listedPrice) / b.listedPrice * 100).round() : 0;
     final other = b.otherName(me);
 
-    final (IconData icon, String text, Color color) = b.isAgreed
-        ? (Icons.handshake_rounded, 'Deal agreed. Escrow holds the amount until delivery.', p.success)
+    final (IconData icon, String text, Color color) = b.status == 'completed'
+        ? (Icons.verified_rounded, 'Delivered. The payment was released to the vendor.', p.success)
+        : b.status == 'disputed'
+            ? (Icons.gavel_rounded, 'Disputed. An administrator is reviewing it; the money stays in escrow.', p.warning)
+            : b.isAgreed
+                ? (Icons.handshake_rounded, 'Deal agreed. Escrow holds the amount until delivery.', p.success)
         : !b.isOpen
             ? (Icons.cancel_rounded, 'This negotiation was ${b.status}.', AppColors.danger)
             : turn
@@ -419,6 +508,7 @@ class _DealPanel extends StatelessWidget {
               label: const Text('Change my offer'),
             ),
         ],
+        ?after,
       ]),
     );
   }
@@ -693,4 +783,112 @@ class _PriceSheetState extends State<_PriceSheet> {
       ]),
     );
   }
+}
+
+class _DisputeSheet extends StatefulWidget {
+  const _DisputeSheet();
+  @override
+  State<_DisputeSheet> createState() => _DisputeSheetState();
+}
+
+class _DisputeSheetState extends State<_DisputeSheet> {
+  final _form = GlobalKey<FormState>();
+  final _reason = TextEditingController();
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: EdgeInsets.fromLTRB(20, 0, 20, 20 + MediaQuery.of(context).viewInsets.bottom),
+        child: Form(
+          key: _form,
+          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Text('Report a problem', style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 4),
+            Text('An administrator reviews it. The money stays in escrow until it is settled.', style: TextStyle(color: AppPalette.of(context).muted)),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _reason,
+              maxLines: 4,
+              maxLength: 1000,
+              autofocus: true,
+              decoration: const InputDecoration(labelText: 'What went wrong?', alignLabelWithHint: true),
+              validator: (v) => V.length(v, min: 10, max: 1000, label: 'The description'),
+            ),
+            const SizedBox(height: 8),
+            FilledButton(
+              onPressed: () {
+                if (_form.currentState!.validate()) Navigator.pop(context, _reason.text.trim());
+              },
+              style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(52)),
+              child: const Text('Send report'),
+            ),
+          ]),
+        ),
+      );
+}
+
+/// Rate an event you booked (1 to 5 stars and a comment), like the website.
+class ReviewSheet extends StatefulWidget {
+  const ReviewSheet({super.key, required this.eventId});
+  final String eventId;
+  @override
+  State<ReviewSheet> createState() => _ReviewSheetState();
+}
+
+class _ReviewSheetState extends State<ReviewSheet> {
+  final _form = GlobalKey<FormState>();
+  final _comment = TextEditingController();
+  int _rating = 0;
+  bool _busy = false;
+  String? _error;
+
+  Future<void> _send() async {
+    if (_rating < 1) return setState(() => _error = 'Pick a rating from 1 to 5 stars');
+    if (!_form.currentState!.validate()) return;
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      await Api.instance.post('/reviews', {'eventId': widget.eventId, 'rating': _rating, 'comment': _comment.text.trim()});
+      if (mounted) Navigator.pop(context, true);
+    } catch (e) {
+      setState(() => _error = Api.messageOf(e));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: EdgeInsets.fromLTRB(20, 0, 20, 20 + MediaQuery.of(context).viewInsets.bottom),
+        child: Form(
+          key: _form,
+          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Text('How was it?', style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 10),
+            Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+              for (var i = 1; i <= 5; i++)
+                IconButton(
+                  tooltip: '$i star${i == 1 ? '' : 's'}',
+                  onPressed: () => setState(() => _rating = i),
+                  icon: Icon(i <= _rating ? Icons.star_rounded : Icons.star_outline_rounded, size: 36, color: const Color(0xFFF59E0B)),
+                ),
+            ]),
+            const SizedBox(height: 8),
+            TextFormField(
+              controller: _comment,
+              maxLines: 3,
+              maxLength: 1000,
+              decoration: const InputDecoration(labelText: 'Your review', alignLabelWithHint: true),
+              validator: (v) => (v ?? '').trim().length < 3 ? 'Comment is too short' : null,
+            ),
+            if (_error != null) Padding(padding: const EdgeInsets.only(bottom: 8), child: Text(_error!, style: const TextStyle(color: AppColors.danger))),
+            FilledButton(
+              onPressed: _busy ? null : _send,
+              style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(52)),
+              child: Text(_busy ? 'Sending…' : 'Post review'),
+            ),
+          ]),
+        ),
+      );
 }

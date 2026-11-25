@@ -61,16 +61,47 @@ class ProfileScreen extends StatelessWidget {
         const SizedBox(height: 16),
         Card(
           child: Column(children: [
-            if (u.isVendor)
-              tile(Icons.palette_outlined, 'Design studio', subtitle: 'Create design options with AI pictures', onTap: () => context.push('/designs'))
-            else
+            if (u.isAdmin) ...[
+              tile(Icons.admin_panel_settings_outlined, 'Admin panel', subtitle: 'People, numbers and disputes', onTap: () => context.push('/admin')),
+              const Divider(indent: 56),
+              tile(Icons.qr_code_scanner_rounded, 'Check in guests', subtitle: 'Scan entry passes at the door', onTap: () => context.push('/scanner')),
+              const Divider(indent: 56),
+            ],
+            if (u.isVendor) ...[
+              tile(Icons.storefront_outlined, 'Business profile', subtitle: 'Name, category, location and cover', onTap: () => context.push('/business')),
+              const Divider(indent: 56),
+              tile(Icons.event_available_outlined, 'My event listings', subtitle: 'Packages organizers can make offers on', onTap: () => context.push('/listings')),
+              const Divider(indent: 56),
+              tile(Icons.design_services_outlined, 'My services', subtitle: 'What you offer and the price', onTap: () => context.push('/services')),
+              const Divider(indent: 56),
+              tile(Icons.calendar_month_outlined, 'Availability', subtitle: 'Block the days you are busy', onTap: () => context.push('/availability')),
+              const Divider(indent: 56),
+              tile(Icons.payments_outlined, 'Revenue', subtitle: 'Paid out, in escrow and in negotiation', onTap: () => context.push('/revenue')),
+              const Divider(indent: 56),
+              tile(Icons.star_outline_rounded, 'My reviews', subtitle: 'What organizers said', onTap: () => context.push('/reviews')),
+              const Divider(indent: 56),
+              tile(Icons.qr_code_scanner_rounded, 'Check in guests', subtitle: 'Scan entry passes at the door', onTap: () => context.push('/scanner')),
+              const Divider(indent: 56),
+              tile(Icons.palette_outlined, 'Design studio', subtitle: 'Create design options with AI pictures', onTap: () => context.push('/designs')),
+            ] else ...[
               tile(Icons.event_note_rounded, 'My events', subtitle: 'Plans over one or several days, with checklists', onTap: () => context.push('/events')),
+              const Divider(indent: 56),
+              tile(Icons.favorite_border_rounded, 'Favorite vendors', subtitle: 'Vendors you saved', onTap: () => context.push('/favorites')),
+            ],
             const Divider(indent: 56),
             tile(Icons.qr_code_2_rounded, 'My passes', subtitle: 'Entry passes with QR codes', onTap: () => context.push('/tickets')),
             const Divider(indent: 56),
             tile(Icons.notifications_none_rounded, 'Notifications', subtitle: app.unread > 0 ? '${app.unread} unread' : 'All caught up', onTap: () => context.push('/notifications')),
             const Divider(indent: 56),
             tile(Icons.storefront_outlined, 'Browse vendors', onTap: () => context.go('/vendors')),
+          ]),
+        ),
+        const SizedBox(height: 16),
+        Card(
+          child: Column(children: [
+            tile(Icons.settings_outlined, 'Settings', subtitle: 'Your details, password, region and currency', onTap: () => context.push('/settings')),
+            const Divider(indent: 56),
+            tile(Icons.support_agent_rounded, 'Contact us', subtitle: 'Questions, problems or feedback', onTap: () => context.push('/contact')),
           ]),
         ),
         const SizedBox(height: 16),

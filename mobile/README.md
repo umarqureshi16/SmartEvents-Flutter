@@ -8,16 +8,23 @@ Firebase for analytics, crash reports and push notifications.
 
 | Tab / screen | What it does |
 | --- | --- |
-| Welcome, sign in, sign up | Organizer or vendor accounts, live password-strength checklist (same rules as the server), session kept in secure storage with automatic token refresh |
+| Welcome, sign in, sign up | **Continue with Google**, email and password, organizer / vendor / admin accounts (admin signup and access codes), forgot password and reset, email verification and resend, live password checklist (same rules as the server), session kept in secure storage with automatic token refresh |
 | Explore | Search, category chips, top vendors, upcoming events with infinite scroll |
 | Event | Details, vendor, **Make an offer** (opens a negotiation), **Get pass** (QR ticket) |
-| Vendors | Search and filter by category; vendor profile with stats, events, packages and AI designs |
+| Vendors | Search and filter by category; vendor profile with stats, events, packages and AI designs; **Request a quote**, make an offer on a package, book a design; save to favorites |
 | Bookings / Offers | Grouped into open, agreed and closed; "your turn" badges and banner; updates live |
-| Negotiation | Deal panel (offer on the table, whose turn, price trail), accept / decline / counter, **change my offer** while waiting, chat at any time with quick replies, live over Socket.IO |
+| Negotiation | Deal panel (offer on the table, whose turn, price trail), accept / decline / counter, **change my offer** while waiting, chat at any time with quick replies, live over Socket.IO; after a deal: mark as delivered (releases escrow), cancel, report a problem (dispute), leave a review |
 | Smartie | AI assistant that answers from your own bookings; proposed actions run only after **Confirm** |
 | Passes | QR entry passes, full-screen for the gate |
 | Notifications | Unread badge, mark all read, tap to open the booking |
 | Profile | Account, trust score, light / dark / system theme, Firebase status, sign out |
+| Settings | Name and email, change password, country and region (sets the currency), contact us |
+| Organizer extras | My events (plans with checklists), favorite vendors, event reviews |
+| Vendor tools | Business profile, event listings (create / edit / delete), services, availability calendar, revenue, reviews, **check in guests** (QR scanner), design studio |
+| Admin | Platform numbers, people (restrict, verify vendors, change roles), disputes (refund or pay out) |
+
+Prices show in the user's own currency (from their country), and every form
+checks the same rules as the server (`server/utils/validation.js`).
 
 ## Run
 
@@ -37,6 +44,23 @@ flutter run --dart-define=API_BASE_URL=http://10.0.2.2:5000/api/v1 --dart-define
 # Web (the server must allow the page's origin in ALLOWED_ORIGINS)
 flutter run -d chrome --web-port 5173 --dart-define=API_BASE_URL=http://localhost:5000/api/v1 --dart-define=SOCKET_URL=http://localhost:5000
 ```
+
+## Google sign-in (one time)
+
+The app sends Google's ID token to `POST /auth/google`, which checks it against
+the website's OAuth client (`GOOGLE_CLIENT_ID` on the server). The app uses
+that same web client ID (`GOOGLE_SERVER_CLIENT_ID`, set in
+`lib/config/api_config.dart`). Android also needs the app registered in the
+same Google Cloud project:
+
+1. Google Cloud console, the project that owns the web client
+   (`334746400767-...`), APIs and Services, Credentials, Create credentials,
+   OAuth client ID, type **Android**.
+2. Package name `com.smartevents.smartevents`, and the SHA-1 of the signing key.
+   For debug builds on this PC:
+   `keytool -list -v -keystore %USERPROFILE%\.android\debug.keystore -alias androiddebugkey -storepass android`
+   (add the release key's SHA-1 too before publishing).
+3. No code change is needed; the sign-in sheet works once Google has the app.
 
 ## Connect Firebase (one time)
 

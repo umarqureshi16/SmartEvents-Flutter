@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../../core/api_client.dart';
 import '../../core/password_policy.dart';
 import '../../core/theme.dart';
+import '../../core/validators.dart';
 import '../../state/app_state.dart';
 import '../../widgets/common.dart';
 
@@ -144,6 +145,54 @@ class _AuthScaffold extends StatelessWidget {
   }
 }
 
+/// "Continue with Google", shared by sign-in and sign-up.
+class GoogleButton extends StatelessWidget {
+  const GoogleButton({super.key, required this.onPressed, required this.busy, this.label = 'Continue with Google'});
+  final VoidCallback? onPressed;
+  final bool busy;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = AppPalette.of(context);
+    return OutlinedButton(
+      onPressed: busy ? null : onPressed,
+      style: OutlinedButton.styleFrom(minimumSize: const Size.fromHeight(54), side: BorderSide(color: p.border)),
+      child: busy
+          ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2.5))
+          : Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+              Container(
+                width: 24,
+                height: 24,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(color: Colors.white, shape: BoxShape.circle, border: Border.all(color: const Color(0xFFE5E7EB))),
+                child: const Text('G', style: TextStyle(fontWeight: FontWeight.w900, color: Color(0xFF4285F4), fontSize: 15)),
+              ),
+              const SizedBox(width: 12),
+              Text(label, style: const TextStyle(fontWeight: FontWeight.w800)),
+            ]),
+    );
+  }
+}
+
+class _OrDivider extends StatelessWidget {
+  const _OrDivider();
+  @override
+  Widget build(BuildContext context) {
+    final p = AppPalette.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 18),
+      child: Row(children: [
+        const Expanded(child: Divider()),
+        Padding(padding: const EdgeInsets.symmetric(horizontal: 12), child: Text('or', style: TextStyle(color: p.muted))),
+        const Expanded(child: Divider()),
+      ]),
+    );
+  }
+}
+
+bool _needsAdminCode(Object e) => e is ApiException && (e.code == 'ADMIN_CODE_REQUIRED' || e.code == 'ADMIN_CODE_INVALID');
+
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
   @override
@@ -154,22 +203,60 @@ class _LoginScreenState extends State<LoginScreen> {
   final _form = GlobalKey<FormState>();
   final _email = TextEditingController();
   final _password = TextEditingController();
+  final _adminCode = TextEditingController();
   bool _busy = false;
+  bool _google = false;
   bool _show = false;
+  bool _showAdmin = false;
+  bool _unverified = false;
   String? _error;
+
+  void _fail(Object e) {
+    setState(() {
+      _error = Api.messageOf(e);
+      if (_needsAdminCode(e)) _showAdmin = true;
+      _unverified = e is ApiException && e.status == 403 && e.message.toLowerCase().contains('verif');
+    });
+  }
 
   Future<void> _submit() async {
     if (!_form.currentState!.validate()) return;
     setState(() {
       _busy = true;
       _error = null;
+      _unverified = false;
     });
     try {
-      await context.read<AppState>().signIn(_email.text, _password.text);
+      await context.read<AppState>().signIn(_email.text, _password.text, adminCode: _adminCode.text);
     } catch (e) {
-      setState(() => _error = Api.messageOf(e));
+      _fail(e);
     } finally {
       if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _withGoogle() async {
+    setState(() {
+      _google = true;
+      _error = null;
+    });
+    try {
+      await context.read<AppState>().signInWithGoogle(adminCode: _adminCode.text);
+    } catch (e) {
+      _fail(e);
+    } finally {
+      if (mounted) setState(() => _google = false);
+    }
+  }
+
+  Future<void> _resend() async {
+    final err = V.email(_email.text);
+    if (err != null) return setState(() => _error = err);
+    try {
+      final res = await Api.instance.post('/auth/resend-verification', {'email': _email.text.trim()});
+      if (mounted) showMessage(context, res['message'] as String? ?? 'A new verification link is on its way.');
+    } catch (e) {
+      if (mounted) showMessage(context, Api.messageOf(e), error: true);
     }
   }
 
@@ -179,6 +266,8 @@ class _LoginScreenState extends State<LoginScreen> {
       title: 'Welcome back',
       subtitle: 'Sign in to see your bookings, offers and passes.',
       children: [
+        GoogleButton(onPressed: _withGoogle, busy: _google),
+        const _OrDivider(),
         Form(
           key: _form,
           child: AutofillGroup(
@@ -189,7 +278,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 autofillHints: const [AutofillHints.email],
                 textInputAction: TextInputAction.next,
                 decoration: const InputDecoration(labelText: 'Email', prefixIcon: Icon(Icons.mail_outline_rounded)),
-                validator: (v) => (v ?? '').contains('@') ? null : 'Enter your email address',
+                validator: V.email,
               ),
               const SizedBox(height: 14),
               TextFormField(
@@ -206,19 +295,45 @@ class _LoginScreenState extends State<LoginScreen> {
                     onPressed: () => setState(() => _show = !_show),
                   ),
                 ),
-                validator: (v) => (v ?? '').isEmpty ? 'Enter your password' : null,
+                validator: (v) => (v ?? '').isEmpty ? 'Password is required' : null,
               ),
+              if (_showAdmin) ...[
+                const SizedBox(height: 14),
+                TextFormField(
+                  controller: _adminCode,
+                  obscureText: true,
+                  decoration: const InputDecoration(
+                    labelText: 'Admin access code',
+                    prefixIcon: Icon(Icons.admin_panel_settings_outlined),
+                    helperText: 'Needed for admin and super admin accounts',
+                  ),
+                  validator: (v) => (v ?? '').length > 200 ? 'The code is too long' : null,
+                ),
+              ],
             ]),
           ),
         ),
+        Align(
+          alignment: Alignment.centerRight,
+          child: TextButton(onPressed: () => context.push('/forgot-password'), child: const Text('Forgot password?')),
+        ),
         if (_error != null) _ErrorBanner(_error!),
-        const SizedBox(height: 22),
+        if (_unverified)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Wrap(spacing: 8, children: [
+              TextButton.icon(onPressed: _resend, icon: const Icon(Icons.forward_to_inbox_rounded), label: const Text('Send the link again')),
+              TextButton.icon(onPressed: () => context.push('/verify-email'), icon: const Icon(Icons.link_rounded), label: const Text('I have the link')),
+            ]),
+          ),
+        const SizedBox(height: 14),
         FilledButton(
           onPressed: _busy ? null : _submit,
           style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(54)),
           child: _busy ? const _Spinner() : const Text('Sign in'),
         ),
-        const SizedBox(height: 14),
+        if (!_showAdmin)
+          TextButton(onPressed: () => setState(() => _showAdmin = true), child: const Text('Admin? Enter your access code')),
         TextButton(onPressed: () => context.pushReplacement('/register'), child: const Text('New here? Create an account')),
       ],
     );
@@ -236,24 +351,35 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _name = TextEditingController();
   final _email = TextEditingController();
   final _password = TextEditingController();
+  final _adminCode = TextEditingController();
   String _role = 'customer';
   String _category = 'decoration';
   bool _busy = false;
+  bool _google = false;
   bool _show = false;
   String? _error;
   String? _done;
 
-  static const _categories = {
+  bool get _elevated => _role == 'admin' || _role == 'superadmin';
+
+  static const categories = {
     'venue': 'Venue', 'catering': 'Catering', 'decoration': 'Decoration',
     'photography': 'Photography', 'music': 'Music', 'makeup': 'Makeup',
   };
 
+  String? _adminCodeError() {
+    if (!_elevated) return null;
+    final c = _adminCode.text.trim();
+    if (c.isEmpty) return 'The admin signup code is required';
+    if (c.length > 200) return 'The code is too long';
+    return null;
+  }
+
   Future<void> _submit() async {
-    if (!_form.currentState!.validate()) return;
-    if (!isStrongPassword(_password.text, name: _name.text, email: _email.text)) {
-      setState(() => _error = 'Choose a stronger password: it must meet every rule below the field.');
-      return;
-    }
+    final codeError = _adminCodeError();
+    final valid = _form.currentState!.validate();
+    if (codeError != null) setState(() => _error = codeError);
+    if (!valid || codeError != null) return;
     setState(() {
       _busy = true;
       _error = null;
@@ -265,6 +391,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             password: _password.text,
             role: _role,
             category: _category,
+            adminCode: _elevated ? _adminCode.text.trim() : null,
           );
       if (msg != null && mounted) setState(() => _done = msg);
     } catch (e) {
@@ -274,9 +401,29 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
   }
 
+  Future<void> _withGoogle() async {
+    final codeError = _adminCodeError();
+    if (codeError != null) {
+      setState(() => _error = '$codeError. Enter it first, then sign up with Google.');
+      return;
+    }
+    setState(() {
+      _google = true;
+      _error = null;
+    });
+    try {
+      await context.read<AppState>().signInWithGoogle(role: _role, category: _category, adminCode: _elevated ? _adminCode.text : null);
+    } catch (e) {
+      setState(() => _error = Api.messageOf(e));
+    } finally {
+      if (mounted) setState(() => _google = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
+    final primary = Theme.of(context).colorScheme.primary;
     if (_done != null) {
       return Scaffold(
         appBar: AppBar(),
@@ -284,7 +431,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
           icon: Icons.mark_email_read_rounded,
           title: 'Check your inbox',
           message: _done,
-          action: FilledButton(onPressed: () => context.pushReplacement('/login'), child: const Text('Go to sign in')),
+          action: Column(mainAxisSize: MainAxisSize.min, children: [
+            FilledButton(onPressed: () => context.pushReplacement('/login'), child: const Text('Go to sign in')),
+            TextButton(onPressed: () => context.push('/verify-email'), child: const Text('Paste the link from the email')),
+          ]),
         ),
       );
     }
@@ -297,18 +447,60 @@ class _RegisterScreenState extends State<RegisterScreen> {
             ButtonSegment(value: 'customer', label: Text('Organizer'), icon: Icon(Icons.event_available_rounded)),
             ButtonSegment(value: 'provider', label: Text('Vendor'), icon: Icon(Icons.storefront_rounded)),
           ],
-          selected: {_role},
-          onSelectionChanged: (s) => setState(() => _role = s.first),
+          selected: _elevated ? <String>{} : {_role},
+          emptySelectionAllowed: true,
+          onSelectionChanged: (s) => setState(() => _role = s.isEmpty ? 'customer' : s.first),
         ),
-        const SizedBox(height: 18),
+        Align(
+          alignment: Alignment.centerRight,
+          child: PopupMenuButton<String>(
+            tooltip: 'Admin accounts',
+            onSelected: (r) => setState(() => _role = r),
+            itemBuilder: (_) => const [
+              PopupMenuItem(value: 'admin', child: Text('Admin')),
+              PopupMenuItem(value: 'superadmin', child: Text('Super admin')),
+            ],
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 10),
+              child: Text(
+                _elevated ? 'Signing up as ${_role == 'admin' ? 'Admin' : 'Super admin'}' : 'Admin sign-up',
+                style: TextStyle(color: primary, fontWeight: FontWeight.w700, fontSize: 13),
+              ),
+            ),
+          ),
+        ),
+        if (_role == 'provider') ...[
+          DropdownButtonFormField<String>(
+            initialValue: _category,
+            decoration: const InputDecoration(labelText: 'What do you offer?', prefixIcon: Icon(Icons.category_outlined)),
+            items: categories.entries.map((e) => DropdownMenuItem(value: e.key, child: Text(e.value))).toList(),
+            onChanged: (v) => setState(() => _category = v ?? _category),
+          ),
+          const SizedBox(height: 14),
+        ],
+        if (_elevated) ...[
+          TextField(
+            controller: _adminCode,
+            obscureText: true,
+            decoration: const InputDecoration(labelText: 'Admin signup code', prefixIcon: Icon(Icons.admin_panel_settings_outlined)),
+          ),
+          const SizedBox(height: 14),
+        ],
+        GoogleButton(onPressed: _withGoogle, busy: _google, label: 'Sign up with Google'),
+        const _OrDivider(),
         Form(
           key: _form,
           child: Column(children: [
             TextFormField(
               controller: _name,
               textCapitalization: TextCapitalization.words,
-              decoration: InputDecoration(labelText: _role == 'provider' ? 'Business or your name' : 'Full name', prefixIcon: const Icon(Icons.person_outline_rounded)),
-              validator: (v) => (v ?? '').trim().length < 2 ? 'Enter your name' : null,
+              maxLength: 50,
+              decoration: InputDecoration(
+                labelText: _role == 'provider' ? 'Business or your name' : 'Full name',
+                prefixIcon: const Icon(Icons.person_outline_rounded),
+                counterText: '',
+              ),
+              validator: V.name,
               onChanged: (_) => setState(() {}),
             ),
             const SizedBox(height: 14),
@@ -316,25 +508,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
               controller: _email,
               keyboardType: TextInputType.emailAddress,
               decoration: const InputDecoration(labelText: 'Email', prefixIcon: Icon(Icons.mail_outline_rounded)),
-              validator: (v) => RegExp(r'^\S+@\S+\.\S+$').hasMatch(v ?? '') ? null : 'Enter a valid email address',
+              validator: V.email,
               onChanged: (_) => setState(() {}),
             ),
-            if (_role == 'provider') ...[
-              const SizedBox(height: 14),
-              DropdownButtonFormField<String>(
-                initialValue: _category,
-                decoration: const InputDecoration(labelText: 'What do you offer?', prefixIcon: Icon(Icons.category_outlined)),
-                items: _categories.entries.map((e) => DropdownMenuItem(value: e.key, child: Text(e.value))).toList(),
-                onChanged: (v) => setState(() => _category = v ?? _category),
-              ),
-            ],
             const SizedBox(height: 14),
             TextFormField(
               controller: _password,
               obscureText: !_show,
+              maxLength: 128,
               onChanged: (_) => setState(() {}),
               decoration: InputDecoration(
                 labelText: 'Password',
+                counterText: '',
                 prefixIcon: const Icon(Icons.lock_outline_rounded),
                 suffixIcon: IconButton(
                   tooltip: _show ? 'Hide password' : 'Show password',
@@ -342,11 +527,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   onPressed: () => setState(() => _show = !_show),
                 ),
               ),
+              validator: (v) => V.newPassword(v, name: _name.text, email: _email.text),
             ),
           ]),
         ),
         const SizedBox(height: 12),
-        _PasswordChecklist(rules: passwordRules(_password.text, name: _name.text, email: _email.text), muted: p.muted, ok: p.success),
+        PasswordChecklist(rules: passwordRules(_password.text, name: _name.text, email: _email.text), muted: p.muted, ok: p.success),
         if (_error != null) _ErrorBanner(_error!),
         const SizedBox(height: 22),
         FilledButton(
@@ -361,8 +547,202 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 }
 
-class _PasswordChecklist extends StatelessWidget {
-  const _PasswordChecklist({required this.rules, required this.muted, required this.ok});
+/// Pulls the token out of a pasted link (`.../reset-password/TOKEN` or
+/// `...?token=TOKEN`), or returns the text as it is when it is the token.
+String tokenFrom(String text) {
+  final s = text.trim();
+  final uri = Uri.tryParse(s);
+  if (uri != null && uri.hasScheme) {
+    final q = uri.queryParameters['token'];
+    if (q != null && q.isNotEmpty) return q;
+    final segs = uri.pathSegments.where((x) => x.isNotEmpty).toList();
+    if (segs.isNotEmpty) return segs.last;
+  }
+  return s;
+}
+
+/// Forgot password: emails a reset link, then sets the new password here
+/// from that link (the link also works on the website).
+class ForgotPasswordScreen extends StatefulWidget {
+  const ForgotPasswordScreen({super.key});
+  @override
+  State<ForgotPasswordScreen> createState() => _ForgotPasswordScreenState();
+}
+
+class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
+  final _emailForm = GlobalKey<FormState>();
+  final _resetForm = GlobalKey<FormState>();
+  final _email = TextEditingController();
+  final _link = TextEditingController();
+  final _password = TextEditingController();
+  final _confirm = TextEditingController();
+  bool _sent = false;
+  bool _busy = false;
+  bool _show = false;
+  String? _error;
+
+  Future<void> _send() async {
+    if (!_emailForm.currentState!.validate()) return;
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      await Api.instance.post('/auth/forgot-password', {'email': _email.text.trim()});
+      setState(() => _sent = true);
+    } catch (e) {
+      setState(() => _error = Api.messageOf(e));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _reset() async {
+    if (!_resetForm.currentState!.validate()) return;
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      final res = await Api.instance.post('/auth/reset-password', {'token': tokenFrom(_link.text), 'password': _password.text});
+      if (!mounted) return;
+      showMessage(context, res['message'] as String? ?? 'Your password was changed. Sign in with the new one.');
+      context.pushReplacement('/login');
+    } catch (e) {
+      setState(() => _error = Api.messageOf(e));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final p = AppPalette.of(context);
+    return _AuthScaffold(
+      title: _sent ? 'Set a new password' : 'Forgot your password?',
+      subtitle: _sent
+          ? 'If an account exists for ${_email.text.trim()}, a reset link is on its way. Paste that link here.'
+          : 'Enter your email and we will send you a link to choose a new password.',
+      children: [
+        if (!_sent)
+          Form(
+            key: _emailForm,
+            child: TextFormField(
+              controller: _email,
+              keyboardType: TextInputType.emailAddress,
+              decoration: const InputDecoration(labelText: 'Email', prefixIcon: Icon(Icons.mail_outline_rounded)),
+              validator: V.email,
+              onFieldSubmitted: (_) => _send(),
+            ),
+          )
+        else
+          Form(
+            key: _resetForm,
+            child: Column(children: [
+              TextFormField(
+                controller: _link,
+                decoration: const InputDecoration(labelText: 'Reset link from the email', prefixIcon: Icon(Icons.link_rounded)),
+                validator: (v) => tokenFrom(v ?? '').isEmpty ? 'Paste the link from the email' : null,
+              ),
+              const SizedBox(height: 14),
+              TextFormField(
+                controller: _password,
+                obscureText: !_show,
+                maxLength: 128,
+                onChanged: (_) => setState(() {}),
+                decoration: InputDecoration(
+                  labelText: 'New password',
+                  counterText: '',
+                  prefixIcon: const Icon(Icons.lock_outline_rounded),
+                  suffixIcon: IconButton(
+                    tooltip: _show ? 'Hide password' : 'Show password',
+                    icon: Icon(_show ? Icons.visibility_off_rounded : Icons.visibility_rounded),
+                    onPressed: () => setState(() => _show = !_show),
+                  ),
+                ),
+                validator: (v) => V.newPassword(v),
+              ),
+              const SizedBox(height: 14),
+              TextFormField(
+                controller: _confirm,
+                obscureText: !_show,
+                decoration: const InputDecoration(labelText: 'Type it again', prefixIcon: Icon(Icons.lock_outline_rounded)),
+                validator: (v) => v == _password.text ? null : 'The passwords do not match',
+              ),
+              const SizedBox(height: 12),
+              PasswordChecklist(rules: passwordRules(_password.text), muted: p.muted, ok: p.success),
+            ]),
+          ),
+        if (_error != null) _ErrorBanner(_error!),
+        const SizedBox(height: 22),
+        FilledButton(
+          onPressed: _busy ? null : (_sent ? _reset : _send),
+          style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(54)),
+          child: _busy ? const _Spinner() : Text(_sent ? 'Save new password' : 'Send reset link'),
+        ),
+        if (_sent) TextButton(onPressed: () => setState(() => _sent = false), child: const Text('Send the link again')),
+      ],
+    );
+  }
+}
+
+/// Verifies the email address from the link in the welcome email.
+class VerifyEmailScreen extends StatefulWidget {
+  const VerifyEmailScreen({super.key});
+  @override
+  State<VerifyEmailScreen> createState() => _VerifyEmailScreenState();
+}
+
+class _VerifyEmailScreenState extends State<VerifyEmailScreen> {
+  final _form = GlobalKey<FormState>();
+  final _link = TextEditingController();
+  bool _busy = false;
+  String? _error;
+
+  Future<void> _verify() async {
+    if (!_form.currentState!.validate()) return;
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      final res = await Api.instance.post('/auth/verify-email', {'token': tokenFrom(_link.text)});
+      if (!mounted) return;
+      showMessage(context, res['message'] as String? ?? 'Your email is verified. You can sign in now.');
+      context.pushReplacement('/login');
+    } catch (e) {
+      setState(() => _error = Api.messageOf(e));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => _AuthScaffold(
+        title: 'Verify your email',
+        subtitle: 'Paste the link from the email we sent you.',
+        children: [
+          Form(
+            key: _form,
+            child: TextFormField(
+              controller: _link,
+              decoration: const InputDecoration(labelText: 'Verification link', prefixIcon: Icon(Icons.link_rounded)),
+              validator: (v) => tokenFrom(v ?? '').isEmpty ? 'Verification token is required' : null,
+            ),
+          ),
+          if (_error != null) _ErrorBanner(_error!),
+          const SizedBox(height: 22),
+          FilledButton(
+            onPressed: _busy ? null : _verify,
+            style: FilledButton.styleFrom(minimumSize: const Size.fromHeight(54)),
+            child: _busy ? const _Spinner() : const Text('Verify email'),
+          ),
+        ],
+      );
+}
+
+class PasswordChecklist extends StatelessWidget {
+  const PasswordChecklist({super.key, required this.rules, required this.muted, required this.ok});
   final List<PasswordRule> rules;
   final Color muted;
   final Color ok;

@@ -158,6 +158,7 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                   ),
                 ]),
               ),
+              _EventReviews(eventId: e.id),
             ]),
           ),
         ),
@@ -291,6 +292,58 @@ class _OfferSheetState extends State<OfferSheet> {
           icon: const Icon(Icons.send_rounded),
           label: Text(_busy ? 'Sending…' : 'Send offer'),
         ),
+      ]),
+    );
+  }
+}
+
+
+/// What organizers who booked this event said (GET /reviews/event/:id).
+class _EventReviews extends StatefulWidget {
+  const _EventReviews({required this.eventId});
+  final String eventId;
+  @override
+  State<_EventReviews> createState() => _EventReviewsState();
+}
+
+class _EventReviewsState extends State<_EventReviews> {
+  List<Map<String, dynamic>> _items = [];
+
+  @override
+  void initState() {
+    super.initState();
+    Api.instance.get('/reviews/event/${widget.eventId}').then((r) {
+      if (mounted) setState(() => _items = (r['data'] as List? ?? []).whereType<Map>().map((m) => Map<String, dynamic>.from(m)).toList());
+    }).catchError((_) {});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_items.isEmpty) return const SizedBox.shrink();
+    final p = AppPalette.of(context);
+    final avg = _items.fold<num>(0, (a, r) => a + ((r['rating'] as num?) ?? 0)) / _items.length;
+    return Padding(
+      padding: const EdgeInsets.only(top: 22),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Row(children: [
+          Text('Reviews', style: Theme.of(context).textTheme.titleMedium),
+          const Spacer(),
+          const Icon(Icons.star_rounded, color: Color(0xFFF59E0B), size: 18),
+          Text(' ${avg.toStringAsFixed(1)} · ${_items.length}', style: const TextStyle(fontWeight: FontWeight.w800)),
+        ]),
+        const SizedBox(height: 8),
+        for (final r in _items.take(10))
+          Card(
+            child: ListTile(
+              leading: Avatar(name: '${(r['user'] is Map ? r['user']['name'] : null) ?? 'Organizer'}'),
+              title: Row(children: [
+                Expanded(child: Text('${(r['user'] is Map ? r['user']['name'] : null) ?? 'Organizer'}', style: const TextStyle(fontWeight: FontWeight.w700))),
+                for (var i = 1; i <= 5; i++)
+                  Icon(((r['rating'] as num?) ?? 0) >= i ? Icons.star_rounded : Icons.star_outline_rounded, size: 15, color: const Color(0xFFF59E0B)),
+              ]),
+              subtitle: Text('${r['comment'] ?? ''}', style: TextStyle(color: p.muted)),
+            ),
+          ),
       ]),
     );
   }

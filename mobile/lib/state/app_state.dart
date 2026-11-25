@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+
+import '../config/api_config.dart';
 
 import '../core/api_client.dart';
 import '../core/firebase_service.dart';
@@ -60,10 +63,52 @@ class AppState extends ChangeNotifier {
     } catch (_) {/* stay with the saved summary */}
   }
 
-  Future<void> signIn(String email, String password) async {
-    final res = await Api.instance.post('/auth/login', {'email': email.trim(), 'password': password});
+  Future<void> signIn(String email, String password, {String? adminCode}) async {
+    final res = await Api.instance.post('/auth/login', {
+      'email': email.trim(),
+      'password': password,
+      if (adminCode != null && adminCode.trim().isNotEmpty) 'adminCode': adminCode.trim(),
+    });
     await _start(res);
     FirebaseService.instance.logEvent('login', {'method': 'email'});
+  }
+
+  bool _googleReady = false;
+
+  /// Signs in (or signs up) with a Google account, like "Continue with
+  /// Google" on the website. [role] and [category] apply to new accounts
+  /// only. Returns false when the person closed the Google window.
+  Future<bool> signInWithGoogle({String role = 'customer', String? category, String? adminCode}) async {
+    final google = GoogleSignIn.instance;
+    if (!_googleReady) {
+      await google.initialize(serverClientId: ApiConfig.googleServerClientId);
+      _googleReady = true;
+    }
+    final GoogleSignInAccount account;
+    try {
+      account = await google.authenticate();
+    } on GoogleSignInException catch (e) {
+      if (e.code == GoogleSignInExceptionCode.canceled) return false;
+      throw ApiException(e.description?.isNotEmpty == true ? 'Google sign-in failed: ${e.description}' : 'Google sign-in failed. Please try again.');
+    }
+    final idToken = account.authentication.idToken;
+    if (idToken == null) throw ApiException('Google did not return a sign-in token. Please try again.');
+    final res = await Api.instance.post('/auth/google', {
+      'credential': idToken,
+      'role': role,
+      if (role == 'provider' && category != null) 'category': category,
+      if (adminCode != null && adminCode.trim().isNotEmpty) 'adminCode': adminCode.trim(),
+    });
+    await _start(res);
+    FirebaseService.instance.logEvent('login', {'method': 'google'});
+    return true;
+  }
+
+  /// Replaces the signed-in user's details after a profile change.
+  Future<void> updateUser(Map<String, dynamic> u) async {
+    _setUser(AppUser(u));
+    await SessionStore.instance.save(user: u);
+    notifyListeners();
   }
 
   /// Creates the account. Returns a message when the email must be verified
@@ -74,6 +119,7 @@ class AppState extends ChangeNotifier {
     required String password,
     required String role,
     String? category,
+    String? adminCode,
   }) async {
     final res = await Api.instance.post('/auth/register', {
       'name': name.trim(),
@@ -81,6 +127,7 @@ class AppState extends ChangeNotifier {
       'password': password,
       'role': role,
       if (role == 'provider' && category != null) 'category': category,
+      if (adminCode != null && adminCode.isNotEmpty) 'adminCode': adminCode,
     });
     FirebaseService.instance.logEvent('sign_up', {'method': 'email', 'role': role});
     final verified = (res['user'] as Map?)?['isEmailVerified'] == true;
@@ -121,6 +168,11 @@ class AppState extends ChangeNotifier {
 
   Future<void> signOut({bool expired = false}) async {
     await FirebaseService.instance.unregisterPush();
+    if (_googleReady) {
+      try {
+        await GoogleSignIn.instance.signOut();
+      } catch (_) {}
+    }
     try {
       await Api.instance.post('/auth/logout');
     } catch (_) {}

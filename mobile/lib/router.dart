@@ -10,8 +10,11 @@ import 'screens/designs/design_studio_screen.dart';
 import 'screens/events/events_screen.dart';
 import 'screens/explore/event_detail_screen.dart';
 import 'screens/explore/explore_screen.dart';
+import 'screens/more/admin_screen.dart';
+import 'screens/more/vendor_tools.dart';
 import 'screens/notifications/notifications_screen.dart';
 import 'screens/profile/profile_screen.dart';
+import 'screens/settings/settings_screen.dart';
 import 'screens/smartie/smartie_screen.dart';
 import 'screens/tickets/tickets_screen.dart';
 import 'screens/vendors/vendor_screens.dart';
@@ -31,7 +34,7 @@ class _ScreenLogger extends NavigatorObserver {
 }
 
 GoRouter buildRouter(AppState app) {
-  const publicPaths = {'/welcome', '/login', '/register'};
+  const publicPaths = {'/welcome', '/login', '/register', '/forgot-password', '/verify-email'};
   return GoRouter(
     initialLocation: '/',
     refreshListenable: app,
@@ -47,6 +50,8 @@ GoRouter buildRouter(AppState app) {
       GoRoute(path: '/welcome', name: 'welcome', builder: (_, _) => const WelcomeScreen()),
       GoRoute(path: '/login', name: 'login', builder: (_, _) => const LoginScreen()),
       GoRoute(path: '/register', name: 'register', builder: (_, _) => const RegisterScreen()),
+      GoRoute(path: '/forgot-password', name: 'forgot-password', builder: (_, _) => const ForgotPasswordScreen()),
+      GoRoute(path: '/verify-email', name: 'verify-email', builder: (_, _) => const VerifyEmailScreen()),
       StatefulShellRoute.indexedStack(
         builder: (context, state, shell) => _Shell(shell: shell),
         branches: [
@@ -65,6 +70,17 @@ GoRouter buildRouter(AppState app) {
       GoRoute(path: '/events', name: 'events', builder: (_, _) => const EventsScreen()),
       GoRoute(path: '/events/:id', name: 'event-plan', builder: (_, s) => EventPlanScreen(id: s.pathParameters['id']!)),
       GoRoute(path: '/designs', name: 'designs', builder: (_, _) => const DesignStudioScreen()),
+      GoRoute(path: '/settings', name: 'settings', builder: (_, _) => const SettingsScreen()),
+      GoRoute(path: '/contact', name: 'contact', builder: (_, _) => const ContactScreen()),
+      GoRoute(path: '/favorites', name: 'favorites', builder: (_, _) => const FavoritesScreen()),
+      GoRoute(path: '/services', name: 'services', builder: (_, _) => const ServicesScreen()),
+      GoRoute(path: '/listings', name: 'listings', builder: (_, _) => const ListingsScreen()),
+      GoRoute(path: '/availability', name: 'availability', builder: (_, _) => const AvailabilityScreen()),
+      GoRoute(path: '/reviews', name: 'reviews', builder: (_, _) => const ProviderReviewsScreen()),
+      GoRoute(path: '/revenue', name: 'revenue', builder: (_, _) => const RevenueScreen()),
+      GoRoute(path: '/scanner', name: 'scanner', builder: (_, _) => const ScannerScreen()),
+      GoRoute(path: '/business', name: 'business', builder: (_, _) => const BusinessProfileScreen()),
+      GoRoute(path: '/admin', name: 'admin', builder: (_, _) => const AdminScreen()),
     ],
   );
 }

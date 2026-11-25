@@ -18,4 +18,11 @@ class ApiConfig {
     'SOCKET_URL',
     defaultValue: 'https://smartie-backend.onrender.com',
   );
+
+  /// Google sign-in: the web OAuth client ID the server checks Google's
+  /// ID token against (the same one the website uses). It is public, not a secret.
+  static const String googleServerClientId = String.fromEnvironment(
+    'GOOGLE_SERVER_CLIENT_ID',
+    defaultValue: '334746400767-n57icbgda5ejph7hes6g1is3rjmktpd3.apps.googleusercontent.com',
+  );
 }
