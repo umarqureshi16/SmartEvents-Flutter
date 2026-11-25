@@ -44,14 +44,15 @@ class Money {
     _apply();
   }
 
-  /// The signed-in user's country (user.locale.country), or null when signed out.
+  /// The signed-in user's country (user.locale.country), or null when signed out (Pakistan).
   static void setCountry(String? country) {
     _country = country;
     _apply();
   }
 
   static void _apply() {
-    final cur = (_serverRates && _country != null) ? _currencies[_country] : null;
+    // Like the website, people without a country (signed out) see Pakistan's currency.
+    final cur = _serverRates ? _currencies[_country ?? 'PK'] : null;
     currency = cur ?? 'USD';
     rate = _rates[currency] ?? 1;
   }

@@ -8,7 +8,8 @@ Firebase for analytics, crash reports and push notifications.
 
 | Tab / screen | What it does |
 | --- | --- |
-| Welcome, sign in, sign up | **Continue with Google**, email and password, organizer / vendor / admin accounts (admin signup and access codes), forgot password and reset, email verification and resend, live password checklist (same rules as the server), session kept in secure storage with automatic token refresh |
+| Landing page | The website's home page laid out for phones (and two columns on tablets): hero with the rotating word, live offer mock-up and gate pass, stats, how it works, categories, featured vendors (live), Smartie, why SmartEvents, testimonials, FAQ; SmartEvents app icon and launch screen |
+| Sign in, sign up | **Continue with Google**, email and password, organizer / vendor / admin accounts (admin signup and access codes), forgot password and reset, email verification and resend, live password checklist (same rules as the server), session kept in secure storage with automatic token refresh |
 | Explore | Search, category chips, top vendors, upcoming events with infinite scroll |
 | Event | Details, vendor, **Make an offer** (opens a negotiation), **Get pass** (QR ticket) |
 | Vendors | Search and filter by category; vendor profile with stats, events, packages and AI designs; **Request a quote**, make an offer on a package, book a design; save to favorites |

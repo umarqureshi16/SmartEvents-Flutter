@@ -18,7 +18,9 @@ void main() {
     expect(money(4500), 'Rs 1,260,000');
     expect(Money.toBase(1260000), 4500);
     expect(Money.step, 10000);
-    Money.setCountry(null);
+    Money.setCountry('US');
     expect(money(10), '\$ 10');
+    Money.setCountry(null);
+    expect(Money.currency, 'PKR');
   });
 }

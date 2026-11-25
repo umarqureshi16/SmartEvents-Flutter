@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import 'core/firebase_service.dart';
 import 'screens/auth/auth_screens.dart';
+import 'screens/auth/landing_screen.dart';
 import 'screens/bookings/bookings_screen.dart';
 import 'screens/bookings/negotiation_screen.dart';
 import 'screens/designs/design_studio_screen.dart';
@@ -47,7 +48,7 @@ GoRouter buildRouter(AppState app) {
       return null;
     },
     routes: [
-      GoRoute(path: '/welcome', name: 'welcome', builder: (_, _) => const WelcomeScreen()),
+      GoRoute(path: '/welcome', name: 'welcome', builder: (_, _) => const LandingScreen()),
       GoRoute(path: '/login', name: 'login', builder: (_, _) => const LoginScreen()),
       GoRoute(path: '/register', name: 'register', builder: (_, _) => const RegisterScreen()),
       GoRoute(path: '/forgot-password', name: 'forgot-password', builder: (_, _) => const ForgotPasswordScreen()),

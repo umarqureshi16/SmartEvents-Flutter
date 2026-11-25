@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
@@ -9,109 +8,6 @@ import '../../core/theme.dart';
 import '../../core/validators.dart';
 import '../../state/app_state.dart';
 import '../../widgets/common.dart';
-
-/// First screen for signed-out people.
-class WelcomeScreen extends StatelessWidget {
-  const WelcomeScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final notice = context.watch<AppState>().notice;
-    return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Color(0xFF1E1B4B), Color(0xFF312E81), Color(0xFF0D1018)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-        ),
-        child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Row(children: [
-                Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(gradient: AppColors.brandGradient, borderRadius: BorderRadius.circular(12)),
-                  child: const Icon(Icons.auto_awesome_rounded, color: Colors.white, size: 22),
-                ),
-                const SizedBox(width: 10),
-                const Text('SmartEvents', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w900)),
-              ]),
-              const Spacer(),
-              const _FeatureCards().animate().fadeIn(duration: 500.ms).slideY(begin: 0.08),
-              const SizedBox(height: 28),
-              Text('Your event.\nYour price.',
-                      style: Theme.of(context).textTheme.headlineLarge?.copyWith(color: Colors.white, fontSize: 40, height: 1.05))
-                  .animate()
-                  .fadeIn(delay: 150.ms, duration: 500.ms),
-              const SizedBox(height: 12),
-              Text(
-                'Negotiate with venues, caterers and decorators in real time. Payment is held safely until your event is delivered, and Smartie AI helps you plan.',
-                style: TextStyle(color: Colors.white.withValues(alpha: 0.75), fontSize: 15, height: 1.45),
-              ).animate().fadeIn(delay: 250.ms, duration: 500.ms),
-              if (notice != null) ...[
-                const SizedBox(height: 14),
-                Text(notice, style: const TextStyle(color: Color(0xFFFDE68A), fontWeight: FontWeight.w700)),
-              ],
-              const SizedBox(height: 28),
-              FilledButton(
-                style: FilledButton.styleFrom(backgroundColor: Colors.white, foregroundColor: const Color(0xFF1E1B4B), minimumSize: const Size.fromHeight(56)),
-                onPressed: () => context.push('/register'),
-                child: const Text('Create an account'),
-              ),
-              const SizedBox(height: 12),
-              OutlinedButton(
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.white,
-                  side: BorderSide(color: Colors.white.withValues(alpha: 0.35)),
-                  minimumSize: const Size.fromHeight(56),
-                ),
-                onPressed: () => context.push('/login'),
-                child: const Text('I already have an account'),
-              ),
-            ]),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _FeatureCards extends StatelessWidget {
-  const _FeatureCards();
-
-  @override
-  Widget build(BuildContext context) {
-    Widget card(IconData icon, String title, String text) => Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.08),
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
-          ),
-          child: Row(children: [
-            Icon(icon, color: const Color(0xFFA5B4FC)),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(title, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800)),
-                Text(text, style: TextStyle(color: Colors.white.withValues(alpha: 0.65), fontSize: 12.5)),
-              ]),
-            ),
-          ]),
-        );
-    return Column(children: [
-      card(Icons.handshake_rounded, 'Live negotiation', 'Offer, counter and chat with vendors'),
-      const SizedBox(height: 10),
-      card(Icons.verified_user_rounded, 'Escrow protection', 'Money is released only after delivery'),
-      const SizedBox(height: 10),
-      card(Icons.auto_awesome_rounded, 'Smartie AI', 'Budget plans, designs and answers'),
-    ]);
-  }
-}
 
 class _AuthScaffold extends StatelessWidget {
   const _AuthScaffold({required this.title, required this.subtitle, required this.children});
