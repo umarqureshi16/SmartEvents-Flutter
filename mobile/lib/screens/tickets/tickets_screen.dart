@@ -60,7 +60,7 @@ class _TicketsScreenState extends State<TicketsScreen> {
                         padding: const EdgeInsets.all(16),
                         itemCount: _tickets!.length,
                         separatorBuilder: (_, _) => const SizedBox(height: 14),
-                        itemBuilder: (_, i) => _TicketCard(_tickets![i]),
+                        itemBuilder: (_, i) => _TicketCard(_tickets![i], onChanged: _load),
                       ),
                     ),
     );
@@ -68,8 +68,23 @@ class _TicketsScreenState extends State<TicketsScreen> {
 }
 
 class _TicketCard extends StatelessWidget {
-  const _TicketCard(this.t);
+  const _TicketCard(this.t, {required this.onChanged});
   final TicketItem t;
+  final VoidCallback onChanged;
+
+  Future<void> _cancel(BuildContext context, BuildContext dialog) async {
+    if (!await confirmDialog(context, title: 'Cancel this pass?', message: 'It will no longer get you in. You can get a new pass while places are left.', confirm: 'Cancel pass', danger: true)) {
+      return;
+    }
+    try {
+      await Api.instance.put('/tickets/${t.id}/cancel');
+      if (dialog.mounted) Navigator.pop(dialog);
+      if (context.mounted) showMessage(context, 'Pass cancelled.');
+      onChanged();
+    } catch (e) {
+      if (context.mounted) showMessage(context, Api.messageOf(e), error: true);
+    }
+  }
 
   void _open(BuildContext context) {
     final bytes = _qrBytes(t.qr);
@@ -93,6 +108,8 @@ class _TicketCard extends StatelessWidget {
             SelectableText(t.number, style: const TextStyle(fontWeight: FontWeight.w800, letterSpacing: 0.5)),
             const SizedBox(height: 14),
             FilledButton(onPressed: () => Navigator.pop(c), child: const Text('Done')),
+            if (t.status == 'active' || t.status == 'valid')
+              TextButton(onPressed: () => _cancel(context, c), style: TextButton.styleFrom(foregroundColor: AppColors.danger), child: const Text('Cancel this pass')),
           ]),
         ),
       ),

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:go_router/go_router.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';
 
@@ -14,6 +15,7 @@ import '../../core/validators.dart';
 import '../../models/models.dart';
 import '../../state/app_state.dart';
 import '../../widgets/common.dart';
+import '../more/extras.dart' show fileUnderEvent;
 
 const _quick = {
   'customer': ['Is this date available?', 'What exactly is included?', 'Can you share photos of past setups?', 'Is there any flexibility on price?'],
@@ -317,6 +319,18 @@ class _NegotiationScreenState extends State<NegotiationScreen> {
             tooltip: _dealOpen ? 'Hide deal' : 'Show deal',
             onPressed: () => setState(() => _dealOpen = !_dealOpen),
             icon: Icon(_dealOpen ? Icons.expand_less_rounded : Icons.receipt_long_rounded),
+          ),
+          PopupMenuButton<String>(
+            onSelected: (a) async {
+              if (a == 'design') context.push('/booking-design/${b.id}');
+              if (a == 'organizer' && b.customerId != null) context.push('/organizer/${b.customerId}');
+              if (a == 'plan' && await fileUnderEvent(context, b)) _load();
+            },
+            itemBuilder: (_) => [
+              if (b.isAgreed) const PopupMenuItem(value: 'design', child: Text('Design studio')),
+              if (me.isVendor) const PopupMenuItem(value: 'organizer', child: Text('About this organizer')),
+              if (b.customerId == me.id) const PopupMenuItem(value: 'plan', child: Text('File under one of my events')),
+            ],
           ),
         ],
       ),

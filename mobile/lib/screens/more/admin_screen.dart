@@ -5,6 +5,7 @@ import '../../core/format.dart';
 import '../../core/theme.dart';
 import '../../models/models.dart';
 import '../../widgets/common.dart';
+import 'super_admin.dart';
 
 /// The admin panel: platform numbers, people (restrict, verify vendors,
 /// change roles) and disputes to settle, like the website's Admin panel.
@@ -13,13 +14,20 @@ class AdminScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => DefaultTabController(
-        length: 3,
+        length: 6,
         child: Scaffold(
           appBar: AppBar(
             title: const Text('Admin'),
-            bottom: const TabBar(tabs: [Tab(text: 'Overview'), Tab(text: 'People'), Tab(text: 'Disputes')]),
+            bottom: const TabBar(isScrollable: true, tabAlignment: TabAlignment.start, tabs: [
+              Tab(text: 'Numbers'),
+              Tab(text: 'Business'),
+              Tab(text: 'People'),
+              Tab(text: 'Bookings'),
+              Tab(text: 'Disputes'),
+              Tab(text: 'Activity'),
+            ]),
           ),
-          body: const TabBarView(children: [_Overview(), _People(), _Disputes()]),
+          body: const TabBarView(children: [_Overview(), AdminOverviewTab(), _People(), AdminBookingsTab(), _Disputes(), AuditLogTab(path: '/admin/audit-logs')]),
         ),
       );
 }

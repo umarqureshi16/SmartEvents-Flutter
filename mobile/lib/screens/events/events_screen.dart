@@ -7,6 +7,7 @@ import '../../core/format.dart';
 import '../../core/theme.dart';
 import '../../models/models.dart';
 import '../../widgets/common.dart';
+import '../smartie/planning_tools.dart' show PackagesView;
 
 const _eventTypes = ['Wedding', 'Nikah', 'Mehndi', 'Walima', 'Birthday', 'Corporate', 'Conference', 'Concert', 'Exhibition'];
 
@@ -319,6 +320,51 @@ class _EventPlanScreenState extends State<EventPlanScreen> {
     }
   }
 
+  Future<void> _addTask() async {
+    final c = TextEditingController();
+    final title = await showDialog<String>(
+      context: context,
+      builder: (d) => AlertDialog(
+        title: const Text('Add a task'),
+        content: TextField(controller: c, autofocus: true, maxLength: 140, decoration: const InputDecoration(hintText: 'Confirm the guest list')),
+        actions: [TextButton(onPressed: () => Navigator.pop(d), child: const Text('Cancel')), FilledButton(onPressed: () => Navigator.pop(d, c.text.trim()), child: const Text('Add'))],
+      ),
+    );
+    if (title == null) return;
+    if (title.isEmpty) {
+      if (mounted) showMessage(context, 'A task needs a title.', error: true);
+      return;
+    }
+    try {
+      final res = await Api.instance.post('/plans/${widget.id}/tasks', {'title': title});
+      if (mounted) setState(() => _plan = EventPlan(Map<String, dynamic>.from(res['data'] as Map)));
+    } catch (e) {
+      if (mounted) showMessage(context, Api.messageOf(e), error: true);
+    }
+  }
+
+  Future<void> _delete() async {
+    if (!await confirmDialog(context,
+        title: 'Delete this event?', message: 'Its checklist is removed. Your bookings stay, just no longer filed under it.', confirm: 'Delete', danger: true)) {
+      return;
+    }
+    try {
+      await Api.instance.delete('/plans/${widget.id}');
+      if (!mounted) return;
+      showMessage(context, 'Event deleted.');
+      Navigator.of(context).pop(true);
+    } catch (e) {
+      if (mounted) showMessage(context, Api.messageOf(e), error: true);
+    }
+  }
+
+  Future<void> _packages() async {
+    await Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => Scaffold(appBar: AppBar(title: const Text('Book a package')), body: PackagesView(planId: widget.id)),
+    ));
+    _load();
+  }
+
   Future<void> _toggle(PlanTask t) async {
     try {
       final res = await Api.instance.patch('/plans/${widget.id}/tasks/${t.id}', {'status': t.done ? 'todo' : 'done'});
@@ -385,6 +431,14 @@ class _EventPlanScreenState extends State<EventPlanScreen> {
     return Scaffold(
       appBar: AppBar(title: Text(plan.title), actions: [
         IconButton(onPressed: _changeDates, tooltip: 'Change dates', icon: const Icon(Icons.edit_calendar_rounded)),
+        PopupMenuButton<String>(
+          onSelected: (a) => a == 'task' ? _addTask() : (a == 'packages' ? _packages() : _delete()),
+          itemBuilder: (_) => const [
+            PopupMenuItem(value: 'task', child: Text('Add a task')),
+            PopupMenuItem(value: 'packages', child: Text('Book a package for this event')),
+            PopupMenuItem(value: 'delete', child: Text('Delete this event')),
+          ],
+        ),
       ]),
       body: RefreshIndicator(
         onRefresh: _load,

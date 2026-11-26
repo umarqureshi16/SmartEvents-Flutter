@@ -64,6 +64,10 @@ class ProfileScreen extends StatelessWidget {
             if (u.isAdmin) ...[
               tile(Icons.admin_panel_settings_outlined, 'Admin panel', subtitle: 'People, numbers and disputes', onTap: () => context.push('/admin')),
               const Divider(indent: 56),
+              if (u.role == 'superadmin') ...[
+                tile(Icons.security_rounded, 'Super admin console', subtitle: 'Health, risk, vendors, logs, signup code', onTap: () => context.push('/super-admin')),
+                const Divider(indent: 56),
+              ],
               tile(Icons.qr_code_scanner_rounded, 'Check in guests', subtitle: 'Scan entry passes at the door', onTap: () => context.push('/scanner')),
               const Divider(indent: 56),
             ],
@@ -83,8 +87,16 @@ class ProfileScreen extends StatelessWidget {
               tile(Icons.qr_code_scanner_rounded, 'Check in guests', subtitle: 'Scan entry passes at the door', onTap: () => context.push('/scanner')),
               const Divider(indent: 56),
               tile(Icons.palette_outlined, 'Design studio', subtitle: 'Create design options with AI pictures', onTap: () => context.push('/designs')),
+              const Divider(indent: 56),
+              tile(Icons.brush_rounded, 'Design Lab', subtitle: 'Inspiration and a canvas for your own designs', onTap: () => context.push('/design-lab/user/me')),
             ] else ...[
+              tile(Icons.account_circle_outlined, 'My profile', subtitle: 'Your numbers, spending, reviews and interests', onTap: () => context.push('/my-profile')),
+              const Divider(indent: 56),
               tile(Icons.event_note_rounded, 'My events', subtitle: 'Plans over one or several days, with checklists', onTap: () => context.push('/events')),
+              const Divider(indent: 56),
+              tile(Icons.calculate_outlined, 'Planning tools', subtitle: 'Budget planner, timeline, budget check, packages', onTap: () => context.push('/planning')),
+              const Divider(indent: 56),
+              tile(Icons.brush_rounded, 'Design Lab', subtitle: 'Collect ideas and sketch your decor', onTap: () => context.push('/design-lab/user/me')),
               const Divider(indent: 56),
               tile(Icons.favorite_border_rounded, 'Favorite vendors', subtitle: 'Vendors you saved', onTap: () => context.push('/favorites')),
             ],

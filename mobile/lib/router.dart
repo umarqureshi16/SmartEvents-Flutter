@@ -7,15 +7,19 @@ import 'screens/auth/auth_screens.dart';
 import 'screens/auth/landing_screen.dart';
 import 'screens/bookings/bookings_screen.dart';
 import 'screens/bookings/negotiation_screen.dart';
+import 'screens/designs/design_lab.dart';
 import 'screens/designs/design_studio_screen.dart';
 import 'screens/events/events_screen.dart';
 import 'screens/explore/event_detail_screen.dart';
 import 'screens/explore/explore_screen.dart';
 import 'screens/more/admin_screen.dart';
+import 'screens/more/extras.dart';
+import 'screens/more/super_admin.dart';
 import 'screens/more/vendor_tools.dart';
 import 'screens/notifications/notifications_screen.dart';
 import 'screens/profile/profile_screen.dart';
 import 'screens/settings/settings_screen.dart';
+import 'screens/smartie/planning_tools.dart';
 import 'screens/smartie/smartie_screen.dart';
 import 'screens/tickets/tickets_screen.dart';
 import 'screens/vendors/vendor_screens.dart';
@@ -82,6 +86,21 @@ GoRouter buildRouter(AppState app) {
       GoRoute(path: '/scanner', name: 'scanner', builder: (_, _) => const ScannerScreen()),
       GoRoute(path: '/business', name: 'business', builder: (_, _) => const BusinessProfileScreen()),
       GoRoute(path: '/admin', name: 'admin', builder: (_, _) => const AdminScreen()),
+      GoRoute(path: '/super-admin', name: 'super-admin', builder: (_, _) => const SuperAdminScreen()),
+      GoRoute(path: '/my-profile', name: 'my-profile', builder: (_, _) => const OrganizerProfileScreen()),
+      GoRoute(path: '/organizer/:id', name: 'organizer', builder: (_, s) => OrganizerCardScreen(id: s.pathParameters['id']!)),
+      GoRoute(path: '/planning', name: 'planning', builder: (_, _) => const PlanningToolsScreen()),
+      GoRoute(path: '/booking-design/:id', name: 'booking-design', builder: (_, s) => BookingDesignScreen(bookingId: s.pathParameters['id']!)),
+      GoRoute(
+        path: '/design-lab/:kind/:id',
+        name: 'design-lab',
+        builder: (_, s) => DesignLabScreen(
+          kind: s.pathParameters['kind']!,
+          id: s.pathParameters['id']!,
+          eventType: s.uri.queryParameters['eventType'],
+          theme: s.uri.queryParameters['theme'],
+        ),
+      ),
     ],
   );
 }

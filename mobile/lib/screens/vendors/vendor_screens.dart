@@ -14,6 +14,7 @@ import '../../models/models.dart';
 import '../../state/app_state.dart';
 import '../../widgets/common.dart';
 import '../explore/explore_screen.dart' show EventCard;
+import '../more/extras.dart' show VendorReviewsList, showVendorStat;
 
 const vendorCategories = {
   'All': Icons.apps_rounded,
@@ -259,7 +260,7 @@ class _VendorDetailScreenState extends State<VendorDetailScreen> {
       for (final pk in v.packages) (pk, null, null),
     ];
     return DefaultTabController(
-      length: 3,
+      length: 4,
       child: Scaffold(
         bottomNavigationBar: organizer
             ? SafeArea(
@@ -327,16 +328,16 @@ class _VendorDetailScreenState extends State<VendorDetailScreen> {
                   ],
                   const SizedBox(height: 14),
                   Row(children: [
-                    _Stat(value: v.rating.toStringAsFixed(1), label: 'Rating', icon: Icons.star_rounded, color: const Color(0xFFF59E0B)),
-                    _Stat(value: '${v.trustScore.round()}', label: 'Trust', icon: Icons.shield_rounded, color: p.success),
-                    _Stat(value: '${stats['completedBookings'] ?? 0}', label: 'Delivered', icon: Icons.task_alt_rounded, color: Theme.of(context).colorScheme.primary),
-                    _Stat(value: '${stats['followers'] ?? 0}', label: 'Followers', icon: Icons.favorite_rounded, color: AppColors.danger),
+                    _Stat(value: v.rating.toStringAsFixed(1), label: 'Rating', icon: Icons.star_rounded, color: const Color(0xFFF59E0B), onTap: () => DefaultTabController.of(context).animateTo(3)),
+                    _Stat(value: '${v.trustScore.round()}', label: 'Trust', icon: Icons.shield_rounded, color: p.success, onTap: () => showVendorStat(context, v.userId, 'trust')),
+                    _Stat(value: '${stats['completedBookings'] ?? 0}', label: 'Delivered', icon: Icons.task_alt_rounded, color: Theme.of(context).colorScheme.primary, onTap: () => showVendorStat(context, v.userId, 'delivered')),
+                    _Stat(value: '${stats['followers'] ?? 0}', label: 'Followers', icon: Icons.favorite_rounded, color: AppColors.danger, onTap: () => showVendorStat(context, v.userId, 'followers')),
                   ]),
                 ]),
               ),
             ),
             const SliverToBoxAdapter(
-              child: TabBar(tabs: [Tab(text: 'Events'), Tab(text: 'Packages'), Tab(text: 'Designs')]),
+              child: TabBar(isScrollable: true, tabAlignment: TabAlignment.start, tabs: [Tab(text: 'Events'), Tab(text: 'Packages'), Tab(text: 'Designs'), Tab(text: 'Reviews')]),
             ),
           ],
           body: TabBarView(children: [
@@ -368,6 +369,7 @@ class _VendorDetailScreenState extends State<VendorDetailScreen> {
                     separatorBuilder: (_, _) => const SizedBox(height: 14),
                     itemBuilder: (_, i) => _DesignCard(_designs[i], onBook: organizer ? () => _offer(v, design: _designs[i]) : null),
                   ),
+            VendorReviewsList(vendorUserId: v.userId),
           ]),
         ),
       ),
@@ -376,17 +378,20 @@ class _VendorDetailScreenState extends State<VendorDetailScreen> {
 }
 
 class _Stat extends StatelessWidget {
-  const _Stat({required this.value, required this.label, required this.icon, required this.color});
+  const _Stat({required this.value, required this.label, required this.icon, required this.color, this.onTap});
   final String value;
   final String label;
   final IconData icon;
   final Color color;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
     return Expanded(
-      child: Container(
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
         margin: const EdgeInsets.only(right: 8),
         padding: const EdgeInsets.symmetric(vertical: 12),
         decoration: BoxDecoration(color: p.surface2, borderRadius: BorderRadius.circular(16)),
@@ -396,6 +401,7 @@ class _Stat extends StatelessWidget {
           Text(value, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
           Text(label, style: TextStyle(fontSize: 11, color: p.muted)),
         ]),
+      ),
       ),
     );
   }

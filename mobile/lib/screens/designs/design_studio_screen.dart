@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/api_client.dart';
 import '../../core/format.dart';
@@ -49,6 +50,16 @@ class _DesignStudioScreenState extends State<DesignStudioScreen> {
     if (made != null && made.isNotEmpty && mounted) setState(() => _designs = [...made, ...?_designs]);
   }
 
+  Future<void> _delete(DesignItem d) async {
+    if (!await confirmDialog(context, title: 'Delete "${d.title}"?', message: 'It is removed from your designs and your profile.', confirm: 'Delete', danger: true)) return;
+    try {
+      await Api.instance.delete('/designs/${d.id}');
+      if (mounted) setState(() => _designs = _designs!.where((x) => x.id != d.id).toList());
+    } catch (e) {
+      if (mounted) showMessage(context, Api.messageOf(e), error: true);
+    }
+  }
+
   Future<void> _togglePublish(DesignItem d) async {
     try {
       final res = await Api.instance.put('/designs/${d.id}', {'published': !d.published});
@@ -83,7 +94,7 @@ class _DesignStudioScreenState extends State<DesignStudioScreen> {
                         padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
                         itemCount: _designs!.length,
                         separatorBuilder: (_, _) => const SizedBox(height: 16),
-                        itemBuilder: (_, i) => _DesignCard(_designs![i], onPublish: () => _togglePublish(_designs![i])).animate().fadeIn(delay: (50 * i).ms),
+                        itemBuilder: (_, i) => _DesignCard(_designs![i], onPublish: () => _togglePublish(_designs![i]), onChanged: _load, onDelete: () => _delete(_designs![i])).animate().fadeIn(delay: (50 * i).ms),
                       ),
                     ),
     );
@@ -98,7 +109,9 @@ Color? _hex(String v) {
 }
 
 class _DesignCard extends StatefulWidget {
-  const _DesignCard(this.d, {required this.onPublish});
+  const _DesignCard(this.d, {required this.onPublish, required this.onChanged, required this.onDelete});
+  final VoidCallback onChanged;
+  final VoidCallback onDelete;
   final DesignItem d;
   final VoidCallback onPublish;
   @override
@@ -106,6 +119,38 @@ class _DesignCard extends StatefulWidget {
 }
 
 class _DesignCardState extends State<_DesignCard> {
+  Future<void> _more(String action) async {
+    final d = widget.d;
+    switch (action) {
+      case 'render':
+        showMessage(context, 'Creating a new picture of this design…');
+        try {
+          final r = await Api.instance.post('/designs/${d.id}/render');
+          if (!mounted) return;
+          if ((r['data'] as Map?)?['rendered'] == true) {
+            showMessage(context, 'New picture created.');
+            widget.onChanged();
+          } else {
+            showMessage(context, 'The image service is busy. Try again in a minute.', error: true);
+          }
+        } catch (e) {
+          if (mounted) showMessage(context, Api.messageOf(e), error: true);
+        }
+      case 'gallery':
+        try {
+          await Api.instance.post('/designs/${d.id}/gallery', {'part': 0});
+          if (mounted) showMessage(context, 'Added to the gallery on your profile.');
+        } catch (e) {
+          if (mounted) showMessage(context, Api.messageOf(e), error: true);
+        }
+      case 'lab':
+        await context.push('/design-lab/design/${d.id}?eventType=${Uri.encodeComponent(d.eventType)}&theme=${Uri.encodeComponent(d.theme)}');
+        widget.onChanged();
+      case 'delete':
+        widget.onDelete();
+    }
+  }
+
   int _part = 0;
 
   @override
@@ -180,12 +225,23 @@ class _DesignCardState extends State<_DesignCard> {
                   ]),
                 )),
             const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: d.published
-                  ? OutlinedButton.icon(onPressed: widget.onPublish, icon: const Icon(Icons.visibility_off_outlined), label: const Text('Unpublish'))
-                  : FilledButton.icon(onPressed: widget.onPublish, icon: const Icon(Icons.publish_rounded), label: const Text('Publish on my profile')),
-            ),
+            Row(children: [
+              Expanded(
+                child: d.published
+                    ? OutlinedButton.icon(onPressed: widget.onPublish, icon: const Icon(Icons.visibility_off_outlined), label: const Text('Unpublish'))
+                    : FilledButton.icon(onPressed: widget.onPublish, icon: const Icon(Icons.publish_rounded), label: const Text('Publish on my profile')),
+              ),
+              PopupMenuButton<String>(
+                tooltip: 'More',
+                onSelected: (a) => _more(a),
+                itemBuilder: (_) => const [
+                  PopupMenuItem(value: 'render', child: Text('Create a new picture')),
+                  PopupMenuItem(value: 'gallery', child: Text('Add picture to my gallery')),
+                  PopupMenuItem(value: 'lab', child: Text('Open in Design Lab')),
+                  PopupMenuItem(value: 'delete', child: Text('Delete design')),
+                ],
+              ),
+            ]),
           ]),
         ),
       ]),
@@ -333,6 +389,22 @@ class _CreateSheetState extends State<_CreateSheet> {
   final _idea = TextEditingController();
   String _event = 'Wedding';
   bool _busy = false;
+  bool _themesBusy = false;
+  List<Map<String, dynamic>> _themes = [];
+
+  /// Theme ideas for the event (and the idea, if given), like the website's design wizard.
+  Future<void> _suggest() async {
+    setState(() => _themesBusy = true);
+    try {
+      final r = await Api.instance.post('/designs/themes', {'eventType': _event, if (_idea.text.trim().isNotEmpty) 'idea': _idea.text.trim()});
+      final list = ((r['data'] as Map?)?['themes'] as List? ?? []).whereType<Map>().map((m) => Map<String, dynamic>.from(m)).toList();
+      if (mounted) setState(() => _themes = list);
+    } catch (e) {
+      if (mounted) showMessage(context, Api.messageOf(e), error: true);
+    } finally {
+      if (mounted) setState(() => _themesBusy = false);
+    }
+  }
 
   @override
   void dispose() {
@@ -409,6 +481,46 @@ class _CreateSheetState extends State<_CreateSheet> {
             maxLength: 600,
             decoration: const InputDecoration(labelText: 'Your own design idea (optional)', hintText: 'City skyline backdrop, spider web ceiling, red and blue balloon arch…'),
           ),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              onPressed: _themesBusy ? null : _suggest,
+              icon: const Icon(Icons.lightbulb_outline_rounded),
+              label: Text(_themesBusy ? 'Thinking…' : 'Suggest themes for $_event'),
+            ),
+          ),
+          if (_themes.isNotEmpty)
+            SizedBox(
+              height: 92,
+              child: ListView.separated(
+                scrollDirection: Axis.horizontal,
+                itemCount: _themes.length,
+                separatorBuilder: (_, _) => const SizedBox(width: 8),
+                itemBuilder: (_, i) {
+                  final t = _themes[i];
+                  final palette = (t['palette'] as List? ?? []).map((e) => _hex('$e')).whereType<Color>().toList();
+                  return InkWell(
+                    borderRadius: BorderRadius.circular(16),
+                    onTap: () => setState(() {
+                      _theme.text = '${t['name'] ?? ''}';
+                      _style.text = '${t['style'] ?? ''}';
+                      _colors.text = (t['palette'] as List? ?? []).join(', ');
+                    }),
+                    child: Container(
+                      width: 170,
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(border: Border.all(color: AppPalette.of(context).border), borderRadius: BorderRadius.circular(16)),
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text('${t['name'] ?? ''}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800)),
+                        Text('${t['mood'] ?? t['style'] ?? ''}', maxLines: 2, overflow: TextOverflow.ellipsis, style: TextStyle(fontSize: 11, color: AppPalette.of(context).muted)),
+                        const Spacer(),
+                        Row(children: [for (final c in palette.take(5)) Container(width: 14, height: 14, margin: const EdgeInsets.only(right: 4), decoration: BoxDecoration(color: c, shape: BoxShape.circle))]),
+                      ]),
+                    ),
+                  );
+                },
+              ),
+            ),
           const SizedBox(height: 8),
           FilledButton.icon(
             onPressed: _busy ? null : _go,

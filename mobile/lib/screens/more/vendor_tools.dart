@@ -10,6 +10,7 @@ import '../../core/validators.dart';
 import '../../models/models.dart';
 import '../../widgets/common.dart';
 import '../vendors/vendor_screens.dart' show VendorCard;
+import 'extras.dart' show ListingInsightsSheet;
 
 const vendorCategoryLabels = {
   'venue': 'Venue', 'catering': 'Catering', 'decoration': 'Decoration',
@@ -272,6 +273,11 @@ class _ListingsScreenState extends State<ListingsScreen> {
               return Card(
                 child: ListTile(
                   onTap: () => _edit(e),
+                  leading: IconButton(
+                    tooltip: 'Readiness and passes',
+                    onPressed: () => showModalBottomSheet(context: context, isScrollControlled: true, showDragHandle: true, builder: (_) => ListingInsightsSheet(event: e)),
+                    icon: const Icon(Icons.insights_rounded),
+                  ),
                   title: Text(e.title, style: const TextStyle(fontWeight: FontWeight.w800)),
                   subtitle: Text('${e.category} · ${dateRange(e.date, e.endDate)}\n${e.location} · ${e.capacity} guests'),
                   isThreeLine: true,

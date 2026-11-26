@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/api_client.dart';
@@ -95,6 +96,8 @@ class _SmartieScreenState extends State<SmartieScreen> {
           ),
           const SizedBox(width: 10),
           const Text('Smartie'),
+          const Spacer(),
+          IconButton(tooltip: 'Planning tools', onPressed: () => context.push('/planning'), icon: const Icon(Icons.calculate_outlined)),
         ]),
         actions: [
           if (_msgs.isNotEmpty) IconButton(tooltip: 'New conversation', onPressed: () => setState(_msgs.clear), icon: const Icon(Icons.add_comment_outlined)),

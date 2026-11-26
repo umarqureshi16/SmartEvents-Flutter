@@ -1,0 +1,28 @@
+# Keeps the Flutter app in step with the main SmartEvents project.
+# Every day (and on demand) it takes the latest server and website from the
+# main repository and lists what the website can do that the app cannot yet.
+# A failing run means a new feature needs to be added to the app
+# (or listed in mobile/tool/parity_ignore.json with a reason).
+name: Feature parity with the main project
+
+on:
+  schedule:
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+  push:
+    branches: [master]
+    paths: ['mobile/**', '.github/workflows/parity.yml']
+
+jobs:
+  parity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Latest server and website from the main project
+        run: |
+          git clone --depth 1 https://github.com/Umar-Qureshi-16/SmartEvents.git upstream
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Compare the app with the website
+        run: node mobile/tool/parity.js --server upstream/server --client upstream/client/src --strict
